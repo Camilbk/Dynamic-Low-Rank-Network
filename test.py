@@ -21,7 +21,7 @@ net = DynResNet(data_mnist, L=10)
 print(net.net_structure)
 
 torch.autograd.set_detect_anomaly(True)
-_, acc_train, _, acc_val = optimisation.train(net,  max_epochs = 15)
+_, acc_train, _, acc_val = optimisation.train(net,  max_epochs = 3)
 
 
 
@@ -48,5 +48,5 @@ print("Best validation accuracy: ", round(max(acc_val), 2))
 print("Stepsize: ", net.h)
 
 print(net.orthogonality)
-print(net.rank_evolution)
+#print(net.rank_evolution)
 print(net.plot_integration_error)
