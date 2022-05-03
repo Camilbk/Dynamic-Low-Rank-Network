@@ -813,7 +813,7 @@ class DynTensorResNet(nn.Module):
 
         #assert data_object.transform == 'tucker'
         self.n_channels = 3
-        self.h = 1/L
+        self.h = h
         self.data_object = data_object
         self.k = data_object.k
         self.d_hat = d_hat
@@ -973,7 +973,7 @@ class DynTensorResNet(nn.Module):
                 FU3T = torch.transpose(FU3, 1, 2)
 
                 U1 = cay(FU1 @ U1T, - self.h * (U1 @ FU1T)) @ U1  # Project onto stiefel from tangent space
-                print(check_orthogonality(U1))
+                #print(check_orthogonality(U1))
                 U2 = cay(self.h * (FU2 @ U2T), - self.h * (U2 @ FU2T)) @ U2  # Project onto stiefel from tangent space
                 U3 = cay(self.h * (FU3 @ U3T), - self.h * (U3 @ FU3T)) @ U3  # Project onto stiefel from tangent space
 
