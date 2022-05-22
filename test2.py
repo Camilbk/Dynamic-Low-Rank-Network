@@ -7,8 +7,8 @@ from prettytable import PrettyTable
 from matplotlib import pyplot as plt
 import torch
 
-N = 2500
-V = 2500
+N = 4500
+V = 4500
 batch_size = 5
 # k must be less than 11 :-) for padding reasons
 k = 9
@@ -23,7 +23,7 @@ net = DynTensorResNet(data, L)
 print(net.net_structure)
 
 torch.autograd.set_detect_anomaly(True)
-_, acc_train, _, acc_val = optimisation.train(net,  max_epochs = 2)
+_, acc_train, _, acc_val = optimisation.train(net,  max_epochs = 5)
 
 # table for accuracy
 print('\n statistics of accuracy')

@@ -110,8 +110,8 @@ plt.plot(range(len(Proj_acc_val_fashion)), Proj_acc_val_fashion, 'tab:cyan', lin
 plt.plot(range(len(Dyn_acc_train_mnist)), Dyn_acc_train_mnist, 'tab:brown', label = 'Dyn. mnist' )
 plt.plot(range(len(Dyn_acc_val_mnist)), Dyn_acc_val_mnist, 'tab:brown', linestyle='--')
 
-plt.plot(range(len(Dyn_acc_train_mnist)), Dyn_acc_train_fashion, 'tab:gray', label = 'Dyn. fashion' )
-plt.plot(range(len(Dyn_acc_val_mnist)), Dyn_acc_val_fashion, 'tab:gray', linestyle='--')
+plt.plot(range(len(Dyn_acc_train_fashion)), Dyn_acc_train_fashion, 'tab:gray', label = 'Dyn. fashion' )
+plt.plot(range(len(Dyn_acc_val_fashion)), Dyn_acc_val_fashion, 'tab:gray', linestyle='--')
 
 plt.legend()
 plt.ylabel('accuracy')

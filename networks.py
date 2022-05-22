@@ -885,14 +885,6 @@ class DynTensorResNet(nn.Module):
 
         #S1, S2, S3, (core)  U1, U2, U3  (factors)   inital guess (truncated)
 
-        def invert_S(s):
-            s_inv = torch.empty(s.shape)
-            for i, m in enumerate(s):
-                diag = torch.diagonal(m)
-                diag_inv = diag ** (-1)
-                s_inv[i] = torch.diag(diag_inv)
-            return s_inv
-
         def restore_core(X, d, k ):
             S1 = X[:, 0]
             S2 = X[:, 1]
@@ -982,12 +974,22 @@ class DynTensorResNet(nn.Module):
             FU2T = torch.transpose(FU2, 1, 2)
             FU3T = torch.transpose(FU3, 1, 2)
 
-            U1 = cay(FU1 @ U1T, - self.h * (U1 @ FU1T)) @ U1  # Project onto stiefel from tangent space
-            #print(check_orthogonality(U1))
-            U2 = cay(self.h * (FU2 @ U2T), - self.h * (U2 @ FU2T)) @ U2  # Project onto stiefel from tangent space
-            U3 = cay(self.h * (FU3 @ U3T), - self.h * (U3 @ FU3T)) @ U3  # Project onto stiefel from tangent space
+            u1_tilde = self.h * (FU1 @ U1T - U1 @ FU1T)
+            integrate_u1 = cay(FU1 @ U1T, - self.h * (U1 @ FU1T))
+            self.integration_error[:, 0, i] = norm(integrate_u1 - u1_tilde)
 
-            #self.integration_error[:, 0, i] = norm(u - u_tilde)
+            u2_tilde = self.h * (FU2 @ U2T - U2 @ FU2T)
+            integrate_u2 = cay(self.h * (FU2 @ U2T), - self.h * (U2 @ FU2T))
+            self.integration_error[:, 1, i] = norm(integrate_u2 - u2_tilde)
+
+            u3_tilde = self.h * (FU3 @ U3T - U3 @ FU3T)
+            integrate_u3 = cay(self.h * (FU3 @ U3T), - self.h * (U3 @ FU3T))
+            self.integration_error[:, 2, i] = norm(integrate_u3 - u3_tilde)
+
+            U1 = integrate_u1 @ U1  # Project onto stiefel from tangent space
+            #print(check_orthogonality(U1))
+            U2 = integrate_u2 @ U2  # Project onto stiefel from tangent space
+            U3 = integrate_u3 @ U3  # Project onto stiefel from tangent space
 
             S = S + self.h * dS
 
@@ -1119,22 +1121,31 @@ class DynTensorResNet(nn.Module):
         return s
 
     @property
-    def plot_integration_error(self):
-        # want to track how bad the numerical integration projects away from the Stiefel manifold
-        # Could maybe be used to reject timesteps, and try with a smaller step h, but still we
-        # have very limited control of the error in each step
+    def get_integration_error(self):
+        err_U1 = np.average(self.integration_error[:, 0, :], axis=0)
+        err_U2 = np.average(self.integration_error[:, 1, :], axis=0)
+        err_U3 = np.average(self.integration_error[:, 2, :], axis=0)
 
-        err_U = np.average(self.integration_error[:, 0, :], axis=0)
-        err_V = np.average(self.integration_error[:, 1, :], axis=0)
+        fig, ax = plt.subplots(3)
         plt.tight_layout()
-        plt.title(r' Integration error')
-        plt.plot(err_U, label=r'$|| U - \tilde U ||_F$')
-        plt.plot(err_V, label=r'$|| V - \tilde V ||_F$')
-        plt.xlabel("layer of network")
-        plt.ylabel(" average error")
+
+        ax[0].set_title(r' $|| U_1 - \tilde U_1 ||_F$')
+        ax[0].plot(err_U1)
+        ax[0].set_xlabel("layer of network")
+        ax[0].set_ylabel("error")
+
+        ax[1].set_title(r' $|| U_2 - \tilde U_2||_F$')
+        ax[1].plot(err_U2)
+        ax[1].set_xlabel("layer of network")
+        ax[1].set_ylabel("error")
+
+        ax[2].set_title(r' $|| U_3 - \tilde U_3 ||_F$')
+        ax[2].plot(err_U3)
+        ax[2].set_xlabel("layer of network")
+        ax[2].set_ylabel("error")
         plt.show()
 
-        return err_U, err_V
+        return err_U1, err_U2, err_U3
 
 
 
@@ -1850,7 +1861,7 @@ class ProjTensorResNet(nn.Module):
         ax[1].set_xlabel("layer of network")
         ax[1].set_ylabel("error")
 
-        ax[2].set_title(r' $|| U_3 - \tilde U_# ||_F$')
+        ax[2].set_title(r' $|| U_3 - \tilde U_3 ||_F$')
         ax[2].plot(err_U3)
         ax[2].set_xlabel("layer of network")
         ax[2].set_ylabel("error")
