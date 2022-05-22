@@ -17,11 +17,11 @@ data_mnist = mnist(N, V, batch_size, k, transform) ## data object
 
 print(data_mnist.toString)
 
-net = DynResNet(data_mnist, L=10)
+net = DynResNet(data_mnist, L=10, trainable_stepsize=True)
 print(net.net_structure)
 
 torch.autograd.set_detect_anomaly(True)
-_, acc_train, _, acc_val = optimisation.train(net,  max_epochs = 3)
+_, acc_train, _, acc_val = optimisation.train(net,  max_epochs = 10)
 
 
 
@@ -48,5 +48,6 @@ print("Best validation accuracy: ", round(max(acc_val), 2))
 print("Stepsize: ", net.h)
 
 print(net.orthogonality)
+#print(net.net_structure)
+print(net.get_integration_error)
 #print(net.rank_evolution)
-print(net.plot_integration_error)

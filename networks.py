@@ -31,10 +31,7 @@ def cay(C, D):
     """
     Id = torch.eye(C.shape[1])
     DT = torch.transpose(D, 1, 2)
-    try:
-        inv = torch.inverse(Id - 0.5 * DT @ C)
-    except:
-        print(Id - 0.5 * DT @ C)
+    inv = torch.inverse(Id - 0.5 * DT @ C)
     return Id + C @ inv @ DT
 
 
@@ -83,19 +80,20 @@ class ResNet(nn.Module):
         h = torch.Tensor(1)
         h[0] = 1 / L
         self.data_object = data_object
+        self.n_channels = data_object.n_channels
         self.h = nn.Parameter(h, requires_grad=True)  # random stepsize
         if not trainable_stepsize:
             self.h = 1  # Standard ResNet
         K = len(data_object.labels_map)
         batch_size, self.n_matrices, self.d = data_object.all_data[0].shape  # [1500, 3, 28*k] if  svd
 
-        layers = [nn.Linear(self.image_dimension, self.image_dimension, bias=False)]  # input layer with no bias
+        layers = [nn.Linear(self.image_dimension*self.n_channels, self.image_dimension*self.n_channels, bias=False)]  # input layer with no bias
 
         for layer in range(L):
-            layers.append(nn.Linear(self.image_dimension, self.image_dimension))
+            layers.append(nn.Linear(self.image_dimension*self.n_channels, self.image_dimension*self.n_channels))
         self.layers = nn.ModuleList(layers)
         # affine classifier
-        self.classifier = nn.Linear(self.image_dimension, K)
+        self.classifier = nn.Linear(self.image_dimension*self.n_channels, K)
         # activation function
         self.act = nn.ReLU()
         # hypothesis function to normalize prediction
@@ -124,8 +122,8 @@ class ResNet(nn.Module):
             Features corresponding to data samples at each layer. Shape
             (num_samples, d_hat, L+1).
         """
-        X_transformed = torch.empty(X.shape[0], self.image_dimension, self.L + 1)
-        X = torch.reshape(X, (X.shape[0], self.image_dimension))
+        self.X_transformed = torch.empty(X.shape[0], self.image_dimension*self.n_channels, self.L + 1)
+        X = torch.reshape(X, (X.shape[0], self.image_dimension*self.n_channels))
         # propagate data through network (forward pass)
         for i, layer in enumerate(self.layers):
             # input layer with no activation
@@ -134,22 +132,23 @@ class ResNet(nn.Module):
             # residual layers
             else:
                 X = X + self.h * self.act(layer(X))
-            X_transformed[:, :, i] = X
+            self.X_transformed[:, :, i] = X
 
         # apply classifier
         X_classified = self.classifier(X)
         # apply hypothesis function
         X_predicted = self.hyp(X_classified)
 
-        return [X_predicted, X_classified, X_transformed]
+        return [X_predicted, X_classified, self.X_transformed]
 
     @property
     def rank_evolution(self):
         XsL = self.X_transformed[:, :, :]
         L = self.L
+        d = int(np.sqrt(self.image_dimension))
         ranks = np.zeros((XsL.shape[0], L + 1))
         for layer in range(L + 1):
-            x = XsL[:, :, layer].unflatten(1, (self.d, self.d))
+            x = XsL[:, :, layer].unflatten(1, (d, d))
             ranks[:, layer] = matrix_rank(x)
 
         # print(err_U.shape)
@@ -327,7 +326,7 @@ class SVDResNet(nn.Module):
                 # residual layers
                 else:
                     X = X + self.h * self.act(layer(X))
-                    X = svd_projection(X)
+                X = svd_projection(X)
                 X_transformed[:, :, :, i] = X
 
         if self.n_matrices != 1:
@@ -516,7 +515,7 @@ class DynResNet(nn.Module):
     and given by softmax function in case of general labels.
     """
 
-    def __init__(self, data_object, L, d_hat='none'):
+    def __init__(self, data_object, L, d_hat='none', trainable_stepsize= False):
         super(DynResNet, self).__init__()
 
         assert data_object.transform == 'svd'
@@ -525,11 +524,11 @@ class DynResNet(nn.Module):
         self.k = data_object.k
         self.d_hat = d_hat
         self.L = L
-        # h = torch.rand(1)
-        # h = torch.Tensor(1)
-        # h[0] = 1/L
-        self.h = 0.001  # [0.005, 0.03]
-        # self.h = nn.Parameter(h, requires_grad = True) # random stepsize
+        h = torch.Tensor(1)
+        h[0] = 1 / L
+        self.h = nn.Parameter(h, requires_grad=True)  # random stepsize
+        if not trainable_stepsize:
+            self.h = 1 / L  # Standard ResNet
         K = len(data_object.labels_map)
         batch_size, n_matrices, self.d = data_object.all_data[0].shape  # [1500, 3, 28*k] if  svd
         if self.d_hat == 'none':
@@ -586,7 +585,7 @@ class DynResNet(nn.Module):
 
         k = self.k
 
-        X_transformed = torch.zeros(X.shape[0], self.dim * self.dim, self.L + 1)
+        self.X_transformed = torch.zeros(X.shape[0], self.dim * self.dim, self.L + 1)
         self.Us = torch.zeros(X.shape[0], self.dim * k, self.L + 1)  # U(t)
         Ss = torch.zeros(X.shape[0], k * k, self.L + 1)  # S(t)
         self.Vs = torch.zeros(X.shape[0], self.dim * k, self.L + 1)  # V(t)
@@ -615,8 +614,11 @@ class DynResNet(nn.Module):
         # lagrange_multipliers = True
         # propagate data through network (forward pass)
         for i, layer in enumerate(self.layers):
+            if i == 0:
+                dY = layer(X)
+            else:
+                dY = self.act(layer(X))
             # time integration and projection on stiefel
-            dY = self.act(layer(X))
             dY = dY.unflatten(1, (self.dim, self.dim))
             s_inv = invert_S(s)
             dU = dY @ v @ s_inv
@@ -632,9 +634,13 @@ class DynResNet(nn.Module):
             uT = torch.transpose(u, 1, 2)
             F = (Id - u @ uT) @ dU
             FT = torch.transpose(F, 1, 2)
-            u_tilde = self.h * (F @ uT - u @ FT) @ u  # Propagation in direction of tangent
+
+            u_tilde = self.h * (F @ uT - u @ FT)   # Propagation in direction of tangent
+            project = cay(self.h * (F @ uT), - self.h * (u @ FT))
+            self.integration_error[:, 0, i] = norm(project - u_tilde)
+
             u = cay(self.h * (F @ uT), - self.h * (u @ FT)) @ u  # Project onto stiefel from tangent space
-            self.integration_error[:, 0, i] = norm(u - u_tilde)
+
             ######
             Id = torch.eye(v.shape[1])  # kan lagre I i minne så man slipper å lage denne hver gang
             Id = Id.reshape((1, v.shape[1], v.shape[1]))
@@ -642,9 +648,11 @@ class DynResNet(nn.Module):
             vT = torch.transpose(v, 1, 2)
             F = (Id - v @ vT) @ dV
             FT = torch.transpose(F, 1, 2)
-            v_tilde = self.h * (F @ vT - v @ FT) @ v  # Propagation in direction of tangent
+
+            v_tilde = self.h * (F @ vT - v @ FT)   # Propagation in direction of tangent
+            project =  cay(self.h * (F @ vT), - self.h * (v @ FT))
             v = cay(self.h * (F @ vT), - self.h * (v @ FT)) @ v  # Project onto stiefel from tangent space
-            self.integration_error[:, 1, i] = norm(v - v_tilde)
+            self.integration_error[:, 1, i] = norm(project - v_tilde)
             # u = tangent_projection(u, dU, self.h)
             # v = tangent_projection(v, dV, self.h)
             ######
@@ -663,14 +671,14 @@ class DynResNet(nn.Module):
             self.Us[:, :, i] = torch.flatten(u, 1, 2)
             self.Vs[:, :, i] = torch.flatten(v, 1, 2)
 
-            X_transformed[:, :, i] = X
+            self.X_transformed[:, :, i] = X
 
         # apply classifier
         X_classified = self.classifier(X)  # Projects dimension of network down to output space. Linear classifier
         # apply hypothesis function
         X_predicted = self.hyp(X_classified)  # Maps a batch into a probability distribution
 
-        return [X_predicted, X_classified, X_transformed]
+        return [X_predicted, X_classified, self.X_transformed]
 
     @property
     def rank_evolution(self):
@@ -678,7 +686,7 @@ class DynResNet(nn.Module):
         L = self.L
         ranks = np.zeros((XsL.shape[0], L + 1))
         for layer in range(L + 1):
-            x = XsL[:, :, layer].unflatten(1, (self.d, self.d))
+            x = XsL[:, :, layer].unflatten(1, (self.dim, self.dim))
             ranks[:, layer] = matrix_rank(x)
 
         # print(err_U.shape)
@@ -728,7 +736,7 @@ class DynResNet(nn.Module):
         ax[1].plot(err_V)
         ax[1].set_xlabel("layer of network")
         ax[1].set_ylabel("error")
-        plt.savefig('DynLowRank_Orth%i_%s.png' % (L, classname), bbox_inches='tight')
+        #plt.savefig('DynLowRank_Orth%i_%s.png' % (L, classname), bbox_inches='tight')
 
         s = ' highest average orthogonality error in U: ' + str(max(err_U)) + \
             '\n highest average orthogonality error in V: ' + str(max(err_V))
@@ -757,7 +765,7 @@ class DynResNet(nn.Module):
         return s
 
     @property
-    def plot_integration_error(self):
+    def get_integration_error(self):
         # want to track how bad the numerical integration projects away from the Stiefel manifold
         # Could maybe be used to reject timesteps, and try with a smaller step h, but still we
         # have very limited control of the error in each step
@@ -770,7 +778,7 @@ class DynResNet(nn.Module):
         plt.plot(err_V, label=r'$|| V - \tilde V ||_F$')
         plt.xlabel("layer of network")
         plt.ylabel(" average error")
-        plt.show()
+        #plt.show()
 
         return err_U, err_V
 
@@ -812,17 +820,12 @@ class DynTensorResNet(nn.Module):
         super(DynTensorResNet, self).__init__()
 
         #assert data_object.transform == 'tucker'
-        self.n_channels = 3
+        self.n_channels = data_object.n_channels
         self.h = h
         self.data_object = data_object
         self.k = data_object.k
         self.d_hat = d_hat
         self.L = L
-        # h = torch.rand(1)
-        # h = torch.Tensor(1)
-        # h[0] = 1/L
-        #self.h = 0.001  # [0.005, 0.03]
-        #self.h = nn.Parameter(self.h, requires_grad = True) # random stepsize
         K = len(data_object.labels_map)
         batch_size, n_matrices, self.d = data_object.all_data[0].shape  # [1500, 3, 28*k] if  svd
         if self.d_hat == 'none':
@@ -875,12 +878,21 @@ class DynTensorResNet(nn.Module):
         k = self.k
 
         self.X_transformed = torch.zeros(X.shape[0], self.n_channels*  self.dim * self.dim, self.L + 1)  #[1500, 3, 32*32, layers]
-        Ss = torch.zeros(X.shape[0], self.n_channels, self.k*self.k , self.L + 1)  # S(t) core tensor [1500, 3, (k, k), layers]
+        #Ss = torch.zeros(X.shape[0], self.n_channels, self.k*self.k , self.L + 1)  # S(t) core tensor [1500, 3, (k, k), layers]
         self.U1s = torch.zeros(X.shape[0], self.n_channels * self.n_channels, self.L + 1)  # U1(t)  [1500, (3, 3), layers ]
         self.U2s = torch.zeros(X.shape[0], self.dim * k, self.L + 1)  # U2(t)  [1500, (32, k), layers ]
         self.U3s = torch.zeros(X.shape[0], self.dim * k, self.L + 1)  # U3(t) [1500, (32, k), layers ]
 
         #S1, S2, S3, (core)  U1, U2, U3  (factors)   inital guess (truncated)
+
+        def invert_S(s):
+            s_inv = torch.empty(s.shape)
+            for i, m in enumerate(s):
+                diag = torch.diagonal(m)
+                diag_inv = diag ** (-1)
+                s_inv[i] = torch.diag(diag_inv)
+            return s_inv
+
         def restore_core(X, d, k ):
             S1 = X[:, 0]
             S2 = X[:, 1]
@@ -903,10 +915,7 @@ class DynTensorResNet(nn.Module):
             # Sn : [1500, dim, dim]
             # takes in an n'th unfolding of the S matrix and creates the pseudoinv
             SnT = Sn.T
-            result = SnT @ np.linalg.inv(Sn @ SnT)
-            if len(np.argwhere(np.isnan(result))) == 0:
-                return result
-            else: print("Nan detected in inverse", np.argwhere(np.isnan(result)))
+            return SnT @ np.linalg.pinv(Sn @ SnT)
 
         def Id(U):
             Id = torch.eye(U.shape[1])
@@ -921,7 +930,7 @@ class DynTensorResNet(nn.Module):
         U2 = X[:, 4]
         U3 = X[:, 5]
 
-        Ss[:, :, :,  0] = torch.flatten(S, 2,3)
+        #Ss[:, :, :,  0] = torch.flatten(S, 2,3)
         self.U1s[:, :, 0] = torch.flatten(U1, 1, 2)
         self.U2s[:, :, 0] = torch.flatten(U2, 1, 2)
         self.U3s[:, :, 0] = torch.flatten(U3, 1, 2)
@@ -937,65 +946,66 @@ class DynTensorResNet(nn.Module):
         # propagate data through network (forward pass)
         for i, layer in enumerate(self.layers):
             if i == 0:
-                X = layer(X)
+                dY = layer(X)
             else:
                 # time integration and projection on stiefel
                 dY = self.act(layer( X ))  #[1500, 3 * 32* 32]
-                dY = dY.unflatten(-1, (self.n_channels, self.dim,self.dim)) #[1500, 3, 32, 32]
 
-                ### each U_n is multiplied by the nth-unfolding of S dagger
-                # will not try to be smartypants here so will do it so to make sure the implementation is correct
+            dY = dY.unflatten(-1, (self.n_channels, self.dim,self.dim)) #[1500, 3, 32, 32]
 
-                U1T = transpose(U1,1,2)
-                U2T = transpose(U2, 1, 2)
-                U3T = transpose(U3, 1, 2)
+            ### each U_n is multiplied by the nth-unfolding of S dagger
+            # will not try to be smartypants here so will do it so to make sure the implementation is correct
 
-                dY_numpy = dY.detach().clone().numpy()
-                S_numpy = S.numpy()
-                U1T_numpy = U1T.numpy()
-                U2T_numpy = U2T.numpy()
-                U3T_numpy = U3T.numpy()
-                for el in range(X.shape[0]):  # for element in batch :-(
-                    dS[el] = multi_mode_dot(dY_numpy[el], [ U1T_numpy[el], U2T_numpy[el], U3T_numpy[el] ])
-                    dU1[el] = unfold(multi_mode_dot(dY_numpy[el], [ U2T_numpy[el], U3T_numpy[el]], modes=[1, 2]), 0) @ Sn_dagger( unfold(S_numpy[el], 0))
-                    dU2[el] = unfold( multi_mode_dot(dY_numpy[el], [ U1T_numpy[el], U3T_numpy[el]] , modes=[0, 2]), 1) @ Sn_dagger( unfold(S_numpy[el], 1))
-                    dU3[el] = unfold( multi_mode_dot(dY_numpy[el], [ U1T_numpy[el], U2T_numpy[el]] , modes=[0, 1]), 2) @ Sn_dagger( unfold(S_numpy[el], 2))
+            U1T = transpose(U1,1,2)
+            U2T = transpose(U2, 1, 2)
+            U3T = transpose(U3, 1, 2)
 
-                # cay( F U.T - U F.T ) U
-                # Projection
-                IdU23 = Id(U2)
-                FU1 = ( Id(U1) - U1 @ U1T) @ torch.from_numpy(dU1).float()
-                FU2 = (IdU23 - U2 @ U2T) @ torch.from_numpy(dU2).float()
-                FU3 = (IdU23 - U3 @ U3T) @ torch.from_numpy(dU3).float()
+            dY_numpy = dY.detach().clone().numpy()
+            S_numpy = S.numpy()
+            U1T_numpy = U1T.numpy()
+            U2T_numpy = U2T.numpy()
+            U3T_numpy = U3T.numpy()
+            for el in range(X.shape[0]):  # for element in batch :-(
+                dS[el] = multi_mode_dot(dY_numpy[el], [ U1T_numpy[el], U2T_numpy[el], U3T_numpy[el] ])
+                dU1[el] = unfold( multi_mode_dot(dY_numpy[el], [ U2T_numpy[el], U3T_numpy[el]], modes=[1, 2]), 0) @ Sn_dagger( unfold(S_numpy[el], 0))
+                dU2[el] = unfold( multi_mode_dot(dY_numpy[el], [ U1T_numpy[el], U3T_numpy[el]] , modes=[0, 2]), 1) @ Sn_dagger( unfold(S_numpy[el], 1))
+                dU3[el] = unfold( multi_mode_dot(dY_numpy[el], [ U1T_numpy[el], U2T_numpy[el]] , modes=[0, 1]), 2) @ Sn_dagger( unfold(S_numpy[el], 2))
 
-                FU1T = torch.transpose(FU1, 1, 2)
-                FU2T = torch.transpose(FU2, 1, 2)
-                FU3T = torch.transpose(FU3, 1, 2)
+            # cay( F U.T - U F.T ) U
+            # Projection
+            IdU23 = Id(U2)
+            FU1 = ( Id(U1) - U1 @ U1T) @ torch.from_numpy(dU1).float()
+            FU2 = (IdU23 - U2 @ U2T) @ torch.from_numpy(dU2).float()
+            FU3 = (IdU23 - U3 @ U3T) @ torch.from_numpy(dU3).float()
 
-                U1 = cay(FU1 @ U1T, - self.h * (U1 @ FU1T)) @ U1  # Project onto stiefel from tangent space
-                #print(check_orthogonality(U1))
-                U2 = cay(self.h * (FU2 @ U2T), - self.h * (U2 @ FU2T)) @ U2  # Project onto stiefel from tangent space
-                U3 = cay(self.h * (FU3 @ U3T), - self.h * (U3 @ FU3T)) @ U3  # Project onto stiefel from tangent space
+            FU1T = torch.transpose(FU1, 1, 2)
+            FU2T = torch.transpose(FU2, 1, 2)
+            FU3T = torch.transpose(FU3, 1, 2)
 
-                #self.integration_error[:, 0, i] = norm(u - u_tilde)
+            U1 = cay(FU1 @ U1T, - self.h * (U1 @ FU1T)) @ U1  # Project onto stiefel from tangent space
+            #print(check_orthogonality(U1))
+            U2 = cay(self.h * (FU2 @ U2T), - self.h * (U2 @ FU2T)) @ U2  # Project onto stiefel from tangent space
+            U3 = cay(self.h * (FU3 @ U3T), - self.h * (U3 @ FU3T)) @ U3  # Project onto stiefel from tangent space
 
-                S = S + self.h * dS
+            #self.integration_error[:, 0, i] = norm(u - u_tilde)
 
-                # update the image
-                restored_im = torch.empty((X.shape[0], self.n_channels*self.dim*self.dim))
-                for im in range(X.shape[0]): #loop over batch
-                    tensor = tl.tucker_to_tensor((S[im].numpy(), [U1[im].numpy(), U2[im].numpy(), U3[im].numpy()]))
-                    restored_im[im] = torch.flatten(torch.from_numpy(tensor), 0, -1)
+            S = S + self.h * dS
 
-                X = restored_im
+            # update the image
+            restored_im = torch.empty((X.shape[0], self.n_channels*self.dim*self.dim))
+            for im in range(X.shape[0]): #loop over batch
+                tensor = tl.tucker_to_tensor((S[im].numpy(), [U1[im].numpy(), U2[im].numpy(), U3[im].numpy()]))
+                restored_im[im] = torch.flatten(torch.from_numpy(tensor), 0, -1)
 
-                # Invariants in tangent space if dY^T Y + Y^ dY
-                #self.invariantsU[:, i] = norm(torch.transpose(dU, 1, 2) @ u) - norm(dU @ torch.transpose(u, 1, 2))
-                #self.invariantsV[:, i] = norm(torch.transpose(dV, 1, 2) @ v) - norm(dV @ torch.transpose(v, 1, 2))
-                Ss[:, :, :, i ] = torch.flatten(S, 2, 3)
-                self.U1s[:, :, i ] = torch.flatten(U1, 1, 2)
-                self.U2s[:, :, i] = torch.flatten(U2, 1, 2)
-                self.U3s[:, :, i ] = torch.flatten(U3, 1, 2)
+            X = restored_im
+
+            # Invariants in tangent space if dY^T Y + Y^ dY
+            #self.invariantsU[:, i] = norm(torch.transpose(dU, 1, 2) @ u) - norm(dU @ torch.transpose(u, 1, 2))
+            #self.invariantsV[:, i] = norm(torch.transpose(dV, 1, 2) @ v) - norm(dV @ torch.transpose(v, 1, 2))
+            #Ss[:, :, :, i ] = torch.flatten(S, 2, 3)
+            self.U1s[:, :, i ] = torch.flatten(U1, 1, 2)
+            self.U2s[:, :, i] = torch.flatten(U2, 1, 2)
+            self.U3s[:, :, i ] = torch.flatten(U3, 1, 2)
 
             self.X_transformed[:, :, i ] = X
 
@@ -1102,7 +1112,7 @@ class DynTensorResNet(nn.Module):
         print('total number of parameters in network:           ', num_params)
         print('total number of trainable parameters in network: ', num_trainable_params)
 
-        s = 'This is a Dynamic low rank network: \n' \
+        s = 'This is a Dynamic Tensor Approximation network: \n' \
             ' depth: L = ' + str(self.L) + '\n' \
             ' activation function: ' + str(self.act) + '\n' \
             ' number of trainable parameters: ' + str(num_trainable_params)
@@ -1161,7 +1171,7 @@ class ProjResNet(nn.Module):
     and given by softmax function in case of general labels.
     """
 
-    def __init__(self, data_object, L, d_hat='none', projection_type='polar'):
+    def __init__(self, data_object, L, trainable_stepsize = True, d_hat='none', projection_type='polar'):
         super(ProjResNet, self).__init__()
 
         self.data_object = data_object
@@ -1175,6 +1185,8 @@ class ProjResNet(nn.Module):
         h = torch.Tensor(1)
         h[0] = 1 / L
         self.h = nn.Parameter(h, requires_grad=True)  # random stepsize
+        if not trainable_stepsize:
+            self.h = 1/L  # Standard ResNet
         K = len(data_object.labels_map)
         batch_size, n_matrices, self.d = data_object.all_data[0].shape  # [1500, 3, 28*k] if  svd
         if self.d_hat == 'none':
@@ -1255,10 +1267,11 @@ class ProjResNet(nn.Module):
         self.X_transformed = X_transformed
         k = self.k
         if self.transform == 'svd':
-            self.integration_error = torch.empty(X.shape[0], 2, self.L + 1)
+            integration_error = torch.empty(X.shape[0], 2, self.L + 1)
         else:
-            self.integration_error = torch.empty(X.shape[0], self.L + 1)
+            integration_error = torch.empty(X.shape[0], self.L + 1)
         # propagate data through network (forward pass)
+        self.integration_error = integration_error
         for i, layer in enumerate(self.layers):
             # input layer with no activation
             if i == 0:
@@ -1350,7 +1363,7 @@ class ProjResNet(nn.Module):
                     X_new[:, 1] = X[:, 1]
                     X = X_new
 
-            X_transformed[:, :, :, i] = X
+            self.X_transformed[:, :, :, i] = X
 
         # maybe this does not make sense.. ? Multiplying these back together
 
@@ -1380,7 +1393,7 @@ class ProjResNet(nn.Module):
         # apply hypothesis function
         X_predicted = self.hyp(X_classified)  # Maps a batch into a probability distribution
 
-        return [X_predicted, X_classified, X_transformed]
+        return [X_predicted, X_classified, self.X_transformed]
 
     @property
     def orthogonality(self):
@@ -1469,7 +1482,7 @@ class ProjResNet(nn.Module):
         return s
 
     @property
-    def plot_integration_error(self):
+    def get_integration_error(self):
         # want to track how bad the numerical integration projects away from the Stiefel manifold
         # Could maybe be used to reject timesteps, and try with a smaller step h, but still we
         # have very limited control of the error in each step
@@ -1547,3 +1560,300 @@ class ProjResNet(nn.Module):
         plt.ylabel("average rank")
         plt.show()
         return ranks
+
+
+
+################################################################################
+#
+#           TENSOR PROJECTION NETWORK
+#
+###############################################################################
+
+class ProjTensorResNet(nn.Module):
+    """Residual neural network for dynamic low rank approximation of tensor input.
+
+    Parameters
+    ----------
+
+    data_object : data_object CIFAR10
+        Data object that comes with network
+    L : int
+        Number of layers.
+    d_hat : int, optional
+        Dimension of feature space (here constant over all layers).
+
+    Notes
+    -----
+    Input layer corresponds to space augmentation if necessary. For that
+    reason, it has no bias and training is usually disabled manually outside of
+    this class. Instead of using random initialization, the weight can be set
+    manually outside of this class, e. g. to augment the space by padding with
+    zeros.
+    Classifier is an affine function with randomly initialized weight and bias.
+    As for the input layer, training can be disabled and weight and/or bias set
+    manually outside of this class.
+    Hypothesis function is given by sigmoid function in case of binary labels
+    and given by softmax function in case of general labels.
+    """
+
+    def __init__(self, data_object, L, trainable_stepsize = True, d_hat='none'):
+        super(ProjTensorResNet, self).__init__()
+
+        #assert data_object.transform == 'tucker'
+        self.n_channels = 3
+        self.data_object = data_object
+        self.k = data_object.k
+        self.d_hat = d_hat
+        self.L = L
+        self.h = 1  # Standard ResNet
+        if not trainable_stepsize:
+            h = torch.Tensor(1)
+            h[0] = 1 / L
+            self.h = nn.Parameter(h, requires_grad=True)  # random stepsize
+        K = len(data_object.labels_map)
+        batch_size, n_matrices, self.d = data_object.all_data[0].shape  # [1500, 6, 32*k] if  tucker
+        if self.d_hat == 'none':
+            self.d_hat = self.d
+
+        assert self.d_hat >= self.d
+        self.dim = int(self.d_hat / self.k)
+        # L layers defined by affine operation z = Ky + b
+        in_features =  self.dim * self.k
+        out_features =  self.dim * self.k
+
+        layers = [nn.Linear(in_features= in_features, out_features=out_features, bias=False)]  # input layer with no bias
+
+        for layer in range(L):
+            layers.append(nn.Linear(in_features, out_features))
+        self.layers = nn.ModuleList(layers)
+
+        # affine classifier
+        self.classifier = nn.Linear(self.n_channels*self.dim * self.dim, K)
+        # activation function
+        self.act = nn.ReLU()
+        # hypothesis function to normalize prediction
+        self.hyp = nn.Softmax(dim=1)
+
+        self.layers[0].weight.requires_grad_(False)  # input layer not trained, i.e. weight is fixed
+
+        print("Network ready")
+
+    def forward(self, X):
+        """Propagate data through network.
+
+        Parameters
+        ----------
+        X : torch.Tensor
+            Data samples propagated through network. Shape (num_samples, d).
+
+        Returns
+        -------
+        X_predicted : torch.Tensor
+            Probability for each class of data samples (final network output
+            after applying classifier and hypothesis function). Shape
+            (num_samples, K).
+        X_classified : torch.Tensor
+            Intermediate network output after applying classifier but before
+            applying hypothesis function. Shape (num_samples, K).
+        X_transformed : torch.Tensor
+            Features corresponding to data samples at each layer. Shape
+            (num_samples, d_hat, L+1).
+        """
+
+        k = self.k
+
+        self.X_transformed = torch.zeros(X.shape[0], 6,   self.dim * self.k, self.L + 1)  #[1500, 6, 32*k, layers]
+        #Ss = torch.zeros(X.shape[0], self.n_channels, self.k*self.k , self.L + 1)  # S(t) core tensor [1500, 3, (k, k), layers]
+        self.U1s = torch.zeros(X.shape[0], self.n_channels*self.n_channels, self.L + 1)  # U1(t)  [1500, (3, 3), layers ]
+        self.U2s = torch.zeros(X.shape[0], self.dim * k, self.L + 1)  # U2(t)  [1500, (32, k), layers ]
+        self.U3s = torch.zeros(X.shape[0], self.dim * k, self.L + 1)  # U3(t) [1500, (32, k), layers ]
+
+        #S1, S2, S3, (core)  U1, U2, U3  (factors)   inital guess (truncated)
+        def projection(A, projection_type='polar'):
+            """
+            :param A: Matrix to be projected onto the Stiefel
+            :param projection_type: Type of projection; polar or QR
+            :return: A in Stiefel
+            """
+
+            if projection_type == 'polar':
+                """
+                D. Higham (1997)
+                """
+                U, S, Vh = svd(A)
+                k = self.k
+                n = A.shape[1]
+                m = A.shape[2]
+                # (U V*) (V S V*)
+                return U[:, 0:n, 0:k] @ Vh[:, 0:k, 0:m]
+
+        self.integration_error = torch.empty(X.shape[0], 3, self.L + 1)
+
+        #X = prep_for_vec_field(X) # flatted restored "truncated" tucker decomposition
+        # propagate data through network (forward pass)
+        for i, layer in enumerate(self.layers):
+            if i == 0:
+                X = layer(X)
+
+            else:
+                # time integration and projection on stiefel
+                X = X + self.h * self.act(layer( X ))  #[1500, 3 * 32* 32]
+
+            X = X.unflatten(-1, (self.dim, self.k))  # [batch, 6, (32, k)]
+
+            U1_tilde = X[:, 3]
+            U1_tilde = U1_tilde[:, 0:self.n_channels, 0:self.n_channels]
+            U2_tilde = X[:, 4]
+            U3_tilde = X[:, 5]
+
+            U1 = projection(U1_tilde)
+            U2 = projection(U2_tilde)
+            U3 = projection(U3_tilde)
+
+            self.integration_error[:, 0, i] = norm(U1 - U1_tilde)
+            self.integration_error[:, 1, i] = norm(U2 - U2_tilde)
+            self.integration_error[:, 2, i] = norm(U3 - U3_tilde)
+
+            self.U1s[:, :, i ] = torch.flatten(U1, 1, 2)
+            self.U2s[:, :, i] = torch.flatten(U2, 1, 2)
+            self.U3s[:, :, i ] = torch.flatten(U3, 1, 2)
+
+            X_new = X
+
+            p1d = (0, self.k - self.n_channels, 0, self.dim - self.n_channels)  ## Need to increase dimension from (3,3) to (32, k)
+            U1 = torch.nn.functional.pad(U1, p1d, "constant", 0)
+            X_new[:, 3] = U1
+            X_new[:, 4] = U2
+            X_new[:, 5] = U3
+
+            X = torch.flatten(X_new, 2,-1)
+
+            self.X_transformed[:, :, :, i ] = X
+
+        # update the image
+        restored_im = torch.empty((X.shape[0], self.n_channels * self.dim * self.dim))
+        for im in range(X.shape[0]):  # loop over batch
+            tucker_t = from_tucker_decomposition(X[im], self.k)
+            tensor = tl.tucker_to_tensor(tucker_t)
+            restored_im[im] = torch.flatten(torch.from_numpy(tensor), 0, -1)
+        X = restored_im
+        # apply classifier
+        X_classified = self.classifier(X)  # Projects dimension of network down to output space. Linear classifier
+        # apply hypothesis function
+        X_predicted = self.hyp(X_classified)  # Maps a batch into a probability distribution
+
+        return [X_predicted, X_classified, self.X_transformed]
+
+    @property
+    def orthogonality(self):
+        classname = self.data_object.__class__.__name__
+        # Investigating orthogonality of matrices through the network
+        U1sL = self.U1s  # U1(t)  [1500,  (3,3) , layers  ]
+        U2sL = self.U2s  # U2(t)  [1500, (32, k), layers ]
+        U3sL = self.U3s  # U3(t)  [1500, (32, k), layers ]
+        L = self.L
+        k = self.k
+        err_U1 = np.zeros((U1sL.shape[0], L ))
+        err_U2 = np.zeros((U2sL.shape[0], L  ))
+        err_U3 = np.zeros((U3sL.shape[0], L ))
+        for i, u1_evol in enumerate(U1sL):
+            # matrix_U = u_evol  # pick a matrix
+            u2_evol = U2sL[i]  # pick a matrix
+            u3_evol = U3sL[i]  # pick a matrix
+
+            for layer in range(L ):
+                u1 = u1_evol[:, layer]
+                u2 = u2_evol[:, layer]
+                u3 = u3_evol[:, layer]
+
+                err_U1[i, layer] = check_orthogonality(u1.unflatten(0, (self.n_channels, self.n_channels)))
+                err_U2[i, layer] = check_orthogonality(u2.unflatten(0, (self.dim, k)))
+                err_U3[i, layer] = check_orthogonality(u3.unflatten(0, (self.dim, k)))
+
+        #print( "1",err_U1, "\n 2" , err_U2,"\n 3 ",  err_U3)
+
+        err_U1 = np.average(err_U1, axis=0)
+        err_U2 = np.average(err_U2, axis=0)
+        err_U3 = np.average(err_U3, axis=0)
+        # print(err.shape)
+        # err_av = err/len(Us)
+        # plt.title(r'Orthogonality evolution $|| U U^T - I||_F$')
+
+        fig, ax = plt.subplots(3)
+        plt.tight_layout()
+
+        ax[0].set_title(r' $|| I - U_1^T U_1 ||_F$')
+        ax[0].plot(err_U1)
+        ax[0].set_xlabel("layer of network")
+        ax[0].set_ylabel("error")
+
+        ax[1].set_title(r' $|| I - U_2^T U_2 ||_F$')
+        ax[1].plot(err_U2)
+        ax[1].set_xlabel("layer of network")
+        ax[1].set_ylabel("error")
+
+        ax[2].set_title(r' $|| I - U_3^T U_3 ||_F$')
+        ax[2].plot(err_U2)
+        ax[2].set_xlabel("layer of network")
+        ax[2].set_ylabel("error")
+        plt.show()
+        #plt.savefig('DynTensorRank_Orth%i_%s.png' % (L, classname), bbox_inches='tight')
+
+
+        s = ' highest average orthogonality error in U1: ' + str(max(err_U1)) + \
+            '\n highest average orthogonality error in U2: ' + str(max(err_U2)) + \
+            '\n highest average orthogonality error in U3: ' + str(max(err_U3))
+
+        return s, err_U1, err_U2, err_U3
+
+    @property
+    def net_structure(self):
+        print('network architecture:')
+        print(self, '\n')
+
+        # total number of neurons
+        num_neurons = self.d + self.d_hat * self.L
+        print('total number of neurons in network:              ', num_neurons)
+
+        # total number of parameters
+        num_params = sum(p.numel() for p in self.parameters())
+        num_trainable_params = sum(p.numel() for p in self.parameters() if p.requires_grad)
+        print('total number of parameters in network:           ', num_params)
+        print('total number of trainable parameters in network: ', num_trainable_params)
+
+        s = 'This is a Dynamic low rank network: \n' \
+            ' depth: L = ' + str(self.L) + '\n' \
+            ' activation function: ' + str(self.act) + '\n' \
+            ' number of trainable parameters: ' + str(num_trainable_params)
+        return s
+
+    @property
+    def get_integration_error(self):
+        # want to track how bad the numerical integration projects away from the Stiefel manifold
+        # Could maybe be used to reject timesteps, and try with a smaller step h, but still we
+        # have very limited control of the error in each step
+
+        err_U1 = np.average(self.integration_error[:, 0, :], axis=0)
+        err_U2 = np.average(self.integration_error[:, 1, :], axis=0)
+        err_U3 = np.average(self.integration_error[:, 2, :], axis=0)
+
+        fig, ax = plt.subplots(3)
+        plt.tight_layout()
+
+        ax[0].set_title(r' $|| U_1 - \tilde U_1 ||_F$')
+        ax[0].plot(err_U1)
+        ax[0].set_xlabel("layer of network")
+        ax[0].set_ylabel("error")
+
+        ax[1].set_title(r' $|| U_2 - \tilde U_2||_F$')
+        ax[1].plot(err_U2)
+        ax[1].set_xlabel("layer of network")
+        ax[1].set_ylabel("error")
+
+        ax[2].set_title(r' $|| U_3 - \tilde U_# ||_F$')
+        ax[2].plot(err_U3)
+        ax[2].set_xlabel("layer of network")
+        ax[2].set_ylabel("error")
+        plt.show()
+
+        return err_U1, err_U2, err_U3

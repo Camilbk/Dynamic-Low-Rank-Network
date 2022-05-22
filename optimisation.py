@@ -115,8 +115,9 @@ def train(net, optim_method='adam', lr=1e-1,
 
             # update running loss and gradient
             running_loss += cost_batched.item()
+
             running_gradient += sum(torch.norm(p.grad) for p in
-                                    net.parameters() if p.requires_grad)
+                                    net.parameters() if p.requires_grad and p.grad != None)
 
             # print running loss and gradient every print_batch mini-batches
             if i_batch % print_batch == print_batch - 1:
@@ -125,6 +126,10 @@ def train(net, optim_method='adam', lr=1e-1,
                          running_gradient / print_batch))
                 running_loss = 0.0
                 running_gradient = 0.0
+
+        #errU, errV = net.get_integration_error
+        #print("IerrorU ", errU)
+        #print("IerrorV ", errV)
 
         # store statistics at the end of epoch
         with torch.no_grad():
