@@ -5,12 +5,12 @@ from networks import ResNet, ProjTensorResNet, DynTensorResNet
 from optimisation import train
 import numpy as np
 
-N = 500
-V = 500
+N = 4500
+V = 4500
 batch_size = 5
 
-L = 5
-max_epochs = 5
+L = 10
+max_epochs = 30
 
 k = 9
 
