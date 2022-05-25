@@ -101,6 +101,10 @@ class ResNet(nn.Module):
 
         self.layers[0].weight.requires_grad_(False)  # input layer not trained, i.e. weight is fixed
 
+        state = self.state_dict()
+        self.best_state = state
+        print("Network ready")
+
     def forward(self, X):
         """Propagate data through network.
 
@@ -515,7 +519,7 @@ class DynResNet(nn.Module):
     and given by softmax function in case of general labels.
     """
 
-    def __init__(self, data_object, L, d_hat='none', trainable_stepsize= False):
+    def __init__(self, data_object, L, d_hat='none'):
         super(DynResNet, self).__init__()
 
         assert data_object.transform == 'svd'
@@ -524,11 +528,8 @@ class DynResNet(nn.Module):
         self.k = data_object.k
         self.d_hat = d_hat
         self.L = L
-        h = torch.Tensor(1)
-        h[0] = 1 / L
-        self.h = nn.Parameter(h, requires_grad=True)  # random stepsize
-        if not trainable_stepsize:
-            self.h = 1 / L  # Standard ResNet
+        self.h = 0.001
+
         K = len(data_object.labels_map)
         batch_size, n_matrices, self.d = data_object.all_data[0].shape  # [1500, 3, 28*k] if  svd
         if self.d_hat == 'none':
@@ -552,6 +553,8 @@ class DynResNet(nn.Module):
 
         self.layers[0].weight.requires_grad_(False)  # input layer not trained, i.e. weight is fixed
 
+        state = self.state_dict()
+        self.best_state = state
         print("Network ready")
 
     def forward(self, X):
@@ -635,8 +638,8 @@ class DynResNet(nn.Module):
             F = (Id - u @ uT) @ dU
             FT = torch.transpose(F, 1, 2)
 
-            u_tilde = self.h * (F @ uT - u @ FT)   # Propagation in direction of tangent
-            project = cay(self.h * (F @ uT), - self.h * (u @ FT))
+            u_tilde = self.h * (F @ uT - u @ FT)@u   # Propagation in direction of tangent
+            project = cay(self.h * (F @ uT), - self.h * (u @ FT))@u
             self.integration_error[:, 0, i] = norm(project - u_tilde)
 
             u = cay(self.h * (F @ uT), - self.h * (u @ FT)) @ u  # Project onto stiefel from tangent space
@@ -649,8 +652,8 @@ class DynResNet(nn.Module):
             F = (Id - v @ vT) @ dV
             FT = torch.transpose(F, 1, 2)
 
-            v_tilde = self.h * (F @ vT - v @ FT)   # Propagation in direction of tangent
-            project =  cay(self.h * (F @ vT), - self.h * (v @ FT))
+            v_tilde = self.h * (F @ vT - v @ FT)@v   # Propagation in direction of tangent
+            project =  cay(self.h * (F @ vT), - self.h * (v @ FT))@v
             v = cay(self.h * (F @ vT), - self.h * (v @ FT)) @ v  # Project onto stiefel from tangent space
             self.integration_error[:, 1, i] = norm(project - v_tilde)
             # u = tangent_projection(u, dU, self.h)
@@ -816,16 +819,18 @@ class DynTensorResNet(nn.Module):
     and given by softmax function in case of general labels.
     """
 
-    def __init__(self, data_object, L, h = 0.001, d_hat='none'):
+    def __init__(self, data_object, L, d_hat='none'):
         super(DynTensorResNet, self).__init__()
 
         #assert data_object.transform == 'tucker'
         self.n_channels = data_object.n_channels
-        self.h = h
+        self.h = 0.1 / L
         self.data_object = data_object
         self.k = data_object.k
         self.d_hat = d_hat
         self.L = L
+        state = self.state_dict()
+        self.best_state = state
         K = len(data_object.labels_map)
         batch_size, n_matrices, self.d = data_object.all_data[0].shape  # [1500, 3, 28*k] if  svd
         if self.d_hat == 'none':
@@ -851,6 +856,8 @@ class DynTensorResNet(nn.Module):
 
         self.layers[0].weight.requires_grad_(False)  # input layer not trained, i.e. weight is fixed
 
+        state = self.state_dict()
+        self.best_state = state
         print("Network ready")
 
     def forward(self, X):
@@ -1189,6 +1196,7 @@ class ProjResNet(nn.Module):
         self.transform = data_object.transform
         self.k = data_object.k
         self.d_hat = d_hat
+
         self.L = L
         self.type = projection_type
         assert self.type == 'polar' or self.type == 'qr'
@@ -1225,6 +1233,10 @@ class ProjResNet(nn.Module):
         self.hyp = nn.Softmax(dim=1)
 
         self.layers[0].weight.requires_grad_(False)  # input layer not trained, i.e. weight is fixed
+
+        state = self.state_dict()
+        self.best_state = state
+        print("Network ready")
 
     def forward(self, X):
         """Propagate data through network.
@@ -1647,6 +1659,8 @@ class ProjTensorResNet(nn.Module):
 
         self.layers[0].weight.requires_grad_(False)  # input layer not trained, i.e. weight is fixed
 
+        state = self.state_dict()
+        self.best_state = state
         print("Network ready")
 
     def forward(self, X):

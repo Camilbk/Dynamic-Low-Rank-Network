@@ -1,4 +1,4 @@
-from data import mnist
+from data import mnist, fashionMnist
 from matplotlib import pyplot as plt
 import torch
 from networks import ResNet, ProjResNet, DynResNet
@@ -10,16 +10,15 @@ V = 1500
 batch_size = 5
 
 L = 10
-max_epochs = 30
+max_epochs = 20
 
 plt.rcParams.update({
     "font.size":25})
 
-
 #### STANDARD RESNET
 # DATA
 data_mnist = mnist( N, V, batch_size, k=28, transform='none')
-data_fashion = mnist( N, V, batch_size, k=28, transform='none')
+data_fashion = fashionMnist( N, V, batch_size, k=28, transform='none')
 # NETWORK
 # CONSTRUCT NETWORK
 net_mnist = ResNet(data_mnist, L=10, trainable_stepsize=True, d_hat='none')
@@ -28,12 +27,17 @@ net_fashion = ResNet(data_fashion, L=10, trainable_stepsize=True, d_hat='none')
 torch.autograd.set_detect_anomaly(True)
 _, acc_train_mnist, _, acc_val_mnist = train(net_mnist,  max_epochs = max_epochs)
 _, acc_train_fashion, _, acc_val_fashion = train(net_fashion,  max_epochs = max_epochs)
+#save models
+PATH_mnist = "../../Models/mnist_resnet.pt"
+PATH_fashion = "../../Models/fashion_resnet.pt"
+torch.save(net_mnist.best_state, PATH_mnist)
+torch.save(net_fashion.best_state, PATH_fashion)
 
 
 #### PROJECTION RESNET
 # DATA
 data_mnist_svd = mnist( N, V, batch_size, k=3, transform='svd')
-data_fashion_svd = mnist( N, V, batch_size, k=3, transform='svd')
+data_fashion_svd = fashionMnist( N, V, batch_size, k=3, transform='svd')
 # NETWORK
 # CONSTRUCT NETWORK
 ProjNet_mnist = ProjResNet(data_mnist_svd, L, trainable_stepsize=True, d_hat='none')
@@ -43,10 +47,16 @@ torch.autograd.set_detect_anomaly(True)
 _, Proj_acc_train_mnist, _, Proj_acc_val_mnist = train(ProjNet_mnist,  max_epochs = max_epochs)
 _, Proj_acc_train_fashion, _, Proj_acc_val_fashion = train(ProjNet_fashion,  max_epochs = max_epochs)
 
+#save models
+PATH_mnist = "../../Models/mnist_projnet.pt"
+PATH_fashion = "../../Models/fashion_projnet.pt"
+torch.save(ProjNet_mnist.best_state, PATH_mnist)
+torch.save(ProjNet_fashion.best_state, PATH_fashion)
+
 #### DYNAMIC LOW-RANK NET
 # DATA
 #data_mnist_svd = mnist( N, V, batch_size, k=3, transform='svd')
-#data_fashion_svd = mnist( N, V, batch_size, k=3, transform='svd')
+#data_fashion_svd = fashionMnist( N, V, batch_size, k=3, transform='svd')
 # NETWORK
 # CONSTRUCT NETWORK
 DynResNet_mnist = DynResNet(data_mnist_svd, L, d_hat='none')
@@ -55,7 +65,11 @@ DynResNet_fashion = DynResNet(data_fashion_svd, L, d_hat='none')
 torch.autograd.set_detect_anomaly(True)
 _, Dyn_acc_train_mnist, _, Dyn_acc_val_mnist = train(DynResNet_mnist,  max_epochs = max_epochs)
 _, Dyn_acc_train_fashion, _, Dyn_acc_val_fashion = train(DynResNet_fashion,  max_epochs = max_epochs)
-
+#save models
+PATH_mnist = "../..Models/mnist_dynnet.pt"
+PATH_fashion = "../..Models/fashion_dynnet.pt"
+torch.save(DynResNet_mnist.best_state, PATH_mnist)
+torch.save(DynResNet_fashion.best_state, PATH_fashion)
 
 ### Nice
 

@@ -97,14 +97,13 @@ class mnist:
         )
 
         train_dataloader = DataLoader(training_data, batch_size=N, shuffle=True)
-        test_dataloader = DataLoader(test_data, batch_size=V, shuffle=True)
+        self.test_dataloader = DataLoader(test_data, batch_size=V, shuffle=True)
 
         X_train, C_train = next(iter(train_dataloader))
-        X_val, C_val = next(iter(test_dataloader))
+        X_val, C_val = next(iter(self.test_dataloader))
 
-        # create datasets (with possible transforms)
+        # create datasets
         TrainSet = toydataset(X_train, C_train)
-
         ValSet = toydataset(X_val, C_val)
 
         # create dataloaders for building batches
@@ -185,10 +184,10 @@ class fashionMnist:
         )
 
         train_dataloader = DataLoader(training_data, batch_size=N, shuffle=True)
-        test_dataloader = DataLoader(test_data, batch_size=V, shuffle=True)
+        self.test_dataloader = DataLoader(test_data, batch_size=V, shuffle=True)
 
         X_train, C_train = next(iter(train_dataloader))
-        X_val, C_val = next(iter(test_dataloader))
+        X_val, C_val = next(iter(self.test_dataloader))
 
         # create datasets (with possible transforms)
         TrainSet = toydataset(X_train, C_train)
@@ -212,6 +211,9 @@ class fashionMnist:
 
 class emnist:
     """
+
+    Havent tested this
+
     Prepares and transforms data to be ready for training
 
     """
@@ -289,10 +291,10 @@ class emnist:
         )
 
         train_dataloader = DataLoader(training_data, batch_size=N, shuffle=True)
-        test_dataloader = DataLoader(test_data, batch_size=V, shuffle=True)
+        self.test_dataloader = DataLoader(test_data, batch_size=V, shuffle=True)
 
         X_train, C_train = next(iter(train_dataloader))
-        X_val, C_val = next(iter(test_dataloader))
+        X_val, C_val = next(iter(self.test_dataloader))
 
         # create datasets (with possible transforms)
         TrainSet = toydataset(X_train, C_train)
@@ -379,10 +381,10 @@ class cifar10:
         )
 
         train_dataloader = DataLoader(training_data, batch_size=N, shuffle=True)
-        test_dataloader = DataLoader(test_data, batch_size=V, shuffle=True)
+        self.test_dataloader = DataLoader(test_data, batch_size=V, shuffle=True)
 
         X_train, C_train = next(iter(train_dataloader))
-        X_val, C_val = next(iter(test_dataloader))
+        X_val, C_val = next(iter(self.test_dataloader))
 
         # create datasets (with possible transforms)
         TrainSet = toydataset(X_train, C_train)
@@ -466,10 +468,10 @@ class svhn:
         )
 
         train_dataloader = DataLoader(training_data, batch_size=N, shuffle=True)
-        test_dataloader = DataLoader(test_data, batch_size=V, shuffle=True)
+        self.test_dataloader = DataLoader(test_data, batch_size=V, shuffle=True)
 
         X_train, C_train = next(iter(train_dataloader))
-        X_val, C_val = next(iter(test_dataloader))
+        X_val, C_val = next(iter(self.test_dataloader))
 
         # create datasets (with possible transforms)
         TrainSet = toydataset(X_train, C_train)

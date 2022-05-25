@@ -5,12 +5,12 @@ from networks import ResNet, ProjTensorResNet, DynTensorResNet
 from optimisation import train
 import numpy as np
 
-N = 4500
-V = 4500
+N = 1000
+V = 1000
 batch_size = 5
 
-L = 10
-max_epochs = 30
+L = 3
+max_epochs = 1
 
 k = 9
 
@@ -30,7 +30,11 @@ net_svhn = ResNet(data_svhn, L=L, trainable_stepsize=True, d_hat='none')
 torch.autograd.set_detect_anomaly(True)
 _, acc_train_cifar, _, acc_val_cifar = train(net_cifar,  max_epochs = max_epochs)
 _, acc_train_svhn, _, acc_val_svhn = train(net_svhn,  max_epochs = max_epochs)
-
+#save models
+PATH_cifar = "../../Models/cifar_resnet.pt"
+PATH_svhn = "../../Models/svhn_resnet.pt"
+torch.save(net_cifar.best_state, PATH_cifar)
+torch.save(net_svhn.best_state, PATH_svhn)
 
 #### PROJECTION TENSOR RESNET
 # DATA
@@ -44,11 +48,17 @@ ProjNet_svhn = ProjTensorResNet(data_svhn_tucker, L, trainable_stepsize=True, d_
 torch.autograd.set_detect_anomaly(True)
 _, Proj_acc_train_cifar, _, Proj_acc_val_cifar = train(ProjNet_cifar,  max_epochs = max_epochs)
 _, Proj_acc_train_svhn, _, Proj_acc_val_svhn = train(ProjNet_svhn,  max_epochs = max_epochs)
+#save models
+PATH_cifar = "../../Models/cifar_projnet.pt"
+PATH_svhn = "../../Models/svhn_projnet.pt"
+torch.save(ProjNet_cifar.best_state, PATH_cifar)
+torch.save(ProjNet_svhn.best_state, PATH_svhn)
+
 
 #### DYNAMIC LOW-RANK NET
 # DATA
-#data_mnist_svd = mnist( N, V, batch_size, k=3, transform='svd')
-#data_fashion_svd = mnist( N, V, batch_size, k=3, transform='svd')
+#data_cifar_tucker = cifar10( N, V, batch_size, k=9, transform='tucker')
+#data_svhn_tucker = svhn( N, V, batch_size, k=9, transform='tucker')
 # NETWORK
 # CONSTRUCT NETWORK
 DynResNet_cifar = DynTensorResNet(data_cifar_tucker, L, d_hat='none')
@@ -57,6 +67,11 @@ DynResNet_svhn = DynTensorResNet(data_svhn_tucker, L, d_hat='none')
 torch.autograd.set_detect_anomaly(True)
 _, Dyn_acc_train_cifar, _, Dyn_acc_val_cifar = train(DynResNet_cifar,  max_epochs = max_epochs)
 _, Dyn_acc_train_svhn , _, Dyn_acc_val_svhn  = train(DynResNet_svhn,  max_epochs = max_epochs)
+#save models
+PATH_cifar = "../../Models/cifar_dynnet.pt"
+PATH_svhn = "../../Models/svhn_dynnet.pt"
+torch.save(DynResNet_cifar.best_state, PATH_cifar)
+torch.save(DynResNet_svhn.best_state, PATH_svhn)
 
 print("\n")
 print("ResNet")
