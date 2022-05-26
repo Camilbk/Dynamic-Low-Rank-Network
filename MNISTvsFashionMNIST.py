@@ -10,10 +10,11 @@ V = 1500
 batch_size = 5
 
 L = 10
-max_epochs = 20
+max_epochs = 30
 
 plt.rcParams.update({
     "font.size":25})
+
 
 #### STANDARD RESNET
 # DATA
@@ -30,8 +31,8 @@ _, acc_train_fashion, _, acc_val_fashion = train(net_fashion,  max_epochs = max_
 #save models
 PATH_mnist = "../../Models/mnist_resnet.pt"
 PATH_fashion = "../../Models/fashion_resnet.pt"
-torch.save(net_mnist.best_state, PATH_mnist)
-torch.save(net_fashion.best_state, PATH_fashion)
+torch.save(net_mnist.state_dict(), PATH_mnist)
+torch.save(net_fashion.state_dict(), PATH_fashion)
 
 
 #### PROJECTION RESNET
@@ -50,13 +51,13 @@ _, Proj_acc_train_fashion, _, Proj_acc_val_fashion = train(ProjNet_fashion,  max
 #save models
 PATH_mnist = "../../Models/mnist_projnet.pt"
 PATH_fashion = "../../Models/fashion_projnet.pt"
-torch.save(ProjNet_mnist.best_state, PATH_mnist)
-torch.save(ProjNet_fashion.best_state, PATH_fashion)
+torch.save(ProjNet_mnist.state_dict(), PATH_mnist)
+torch.save(ProjNet_fashion.state_dict(), PATH_fashion)
 
 #### DYNAMIC LOW-RANK NET
 # DATA
-#data_mnist_svd = mnist( N, V, batch_size, k=3, transform='svd')
-#data_fashion_svd = fashionMnist( N, V, batch_size, k=3, transform='svd')
+data_mnist_svd = mnist( N, V, batch_size, k=3, transform='svd')
+data_fashion_svd = fashionMnist( N, V, batch_size, k=3, transform='svd')
 # NETWORK
 # CONSTRUCT NETWORK
 DynResNet_mnist = DynResNet(data_mnist_svd, L, d_hat='none')
@@ -66,10 +67,10 @@ torch.autograd.set_detect_anomaly(True)
 _, Dyn_acc_train_mnist, _, Dyn_acc_val_mnist = train(DynResNet_mnist,  max_epochs = max_epochs)
 _, Dyn_acc_train_fashion, _, Dyn_acc_val_fashion = train(DynResNet_fashion,  max_epochs = max_epochs)
 #save models
-PATH_mnist = "../..Models/mnist_dynnet.pt"
-PATH_fashion = "../..Models/fashion_dynnet.pt"
-torch.save(DynResNet_mnist.best_state, PATH_mnist)
-torch.save(DynResNet_fashion.best_state, PATH_fashion)
+PATH_mnist = "../../Models/mnist_dynnet.pt"
+PATH_fashion = "../../Models/fashion_dynnet.pt"
+torch.save(DynResNet_mnist.state_dict(), PATH_mnist)
+torch.save(DynResNet_fashion.state_dict(), PATH_fashion)
 
 ### Nice
 

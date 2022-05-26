@@ -531,7 +531,7 @@ def svd_transform(t, k):
     t = torch.reshape(t, (d, d))  ## reshape
     Uk, sk, Vk = svd(t)  ## and find the truncates svd
     sk = torch.diag(sk[0:k])
-    p1d = (0, 0, 0, d - k)  ## Need to increase dimension
+    p1d = (0, k - 3, 0, d - 3)  ## Need to increase dimension from (3,3) to (32, k)
     sk = torch.nn.functional.pad(sk, p1d, "constant", 0)
 
     # For the network to be able to handle all three matrices through the network,
@@ -669,3 +669,10 @@ def polar_decomp(t, k):
 
     return UP
 
+def restore_svd(data, k):
+    u = data[0].reshape(28, 3)
+    s = data[1].reshape(28, 3)
+    s = s[0:k, 0:k]
+    v = data[2].reshape(3, 28)
+
+    return u @ s @ v

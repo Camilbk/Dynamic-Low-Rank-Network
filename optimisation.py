@@ -143,11 +143,11 @@ def train(net, optim_method='adam', lr=1e-1,
             C_pred = prediction.pred(X_predicted)
             cost_val.append(loss.cost_value(X_predicted, X_classified, C_val,
                                             loss_criterion).item())
-            prev_acc = acc_val[-1]
+            #prev_acc = acc_val[-1]
             acc_val.append(accuracy.acc(C_val, C_pred).item())
-            this_acc = acc_val[-1]
-            if this_acc > prev_acc:
-                net.best_state = net.state_dict()
+            #this_acc = acc_val[-1]
+            #if this_acc > prev_acc:
+            #    net.best_state = net.state_dict()
 
         # early stopping if overfitting occurs (validation cost as measure of performance)
         #if epoch >= 20 and mean(cost_val[-5:]) - mean(cost_val[-10:-5]) > tol:  # comparison of average over 5 epochs

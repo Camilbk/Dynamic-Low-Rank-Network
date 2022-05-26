@@ -2,6 +2,8 @@ import torch
 import torch.nn.functional as F
 import numpy as np
 from matplotlib import pyplot as plt
+from data import restore_svd, from_tucker_decomposition
+from tensorly import tucker_to_tensor
 
 def fgsm_attack(image, epsilon, data_grad):
     # Collect the element-wise sign of the data gradient
@@ -33,6 +35,7 @@ def test(model, device, test_loader, epsilon):
         data.requires_grad = True
 
         # Forward pass the data through the model
+        print("shape" , data.shape)
         output = model(data)
         output = output[0]
 
@@ -80,6 +83,32 @@ def test(model, device, test_loader, epsilon):
 
     # Return the accuracy and an adversarial example
     return final_acc, adv_examples
+
+# Plot several examples of adversarial samples at each epsilon
+def plot_adversarial_examples(epsilons, examples, k=28, transform=None ):
+    cnt = 0
+    plt.figure(figsize=(8,10))
+    for i in range(len(epsilons)):
+        for j in range(len(examples[i])):
+            cnt += 1
+            plt.subplot(len(epsilons),len(examples[0]),cnt)
+            plt.xticks([], [])
+            plt.yticks([], [])
+            if j == 0:
+                plt.ylabel("Eps: {}".format(epsilons[i]), fontsize=14)
+            orig,adv,ex = examples[i][j]
+            plt.title("{} -> {}".format(orig, adv))
+            if transform == 'svd':
+                ex = restore_svd(ex, k)
+            elif transform == 'tucker':
+                ex = tucker_to_tensor( from_tucker_decomposition(ex, k))
+            else:
+                flattened_size = ex.shape[0]
+                n = int(np.sqrt(flattened_size))
+                ex = ex.reshape((n,n))
+            plt.imshow(ex, cmap="gray")
+    plt.tight_layout()
+    plt.show()
 
 def load_model(net, data_object, L, path, use_cuda=True):
     print("CUDA Available: ",torch.cuda.is_available())
