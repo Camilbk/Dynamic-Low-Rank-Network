@@ -22,8 +22,8 @@ data_mnist = mnist( N, V, batch_size, k=28, transform='none')
 data_fashion = fashionMnist( N, V, batch_size, k=28, transform='none')
 # NETWORK
 # CONSTRUCT NETWORK
-net_mnist = ResNet(data_mnist, L=10, trainable_stepsize=True, d_hat='none')
-net_fashion = ResNet(data_fashion, L=10, trainable_stepsize=True, d_hat='none')
+net_mnist = ResNet(data_mnist, L, trainable_stepsize=True, d_hat='none')
+net_fashion = ResNet(data_fashion, L, trainable_stepsize=True, d_hat='none')
 # TRAIN NETWORK
 torch.autograd.set_detect_anomaly(True)
 _, acc_train_mnist, _, acc_val_mnist = train(net_mnist,  max_epochs = max_epochs)
