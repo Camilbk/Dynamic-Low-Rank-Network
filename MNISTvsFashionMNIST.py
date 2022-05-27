@@ -5,11 +5,11 @@ from networks import ResNet, ProjResNet, DynResNet
 from optimisation import train
 import numpy as np
 
-N = 3000
-V = 3000
-batch_size = 5
+N = 4000
+V = 4000
+batch_size = 10
 
-L = 10
+L = 100
 max_epochs = 40
 
 plt.rcParams.update({
@@ -29,8 +29,8 @@ torch.autograd.set_detect_anomaly(True)
 _, acc_train_mnist, _, acc_val_mnist = train(net_mnist,  max_epochs = max_epochs)
 _, acc_train_fashion, _, acc_val_fashion = train(net_fashion,  max_epochs = max_epochs)
 #save models
-PATH_mnist = "../../Models/mnist_resnet.pt"
-PATH_fashion = "../../Models/fashion_resnet.pt"
+PATH_mnist = "../../Models/mnist_resnet100.pt"
+PATH_fashion = "../../Models/fashion_resnet100.pt"
 torch.save(net_mnist.best_state, PATH_mnist)
 torch.save(net_fashion.best_state, PATH_fashion)
 
@@ -49,8 +49,8 @@ _, Proj_acc_train_mnist, _, Proj_acc_val_mnist = train(ProjNet_mnist,  max_epoch
 _, Proj_acc_train_fashion, _, Proj_acc_val_fashion = train(ProjNet_fashion,  max_epochs = max_epochs)
 
 #save models
-PATH_mnist = "../../Models/mnist_projnet.pt"
-PATH_fashion = "../../Models/fashion_projnet.pt"
+PATH_mnist = "../../Models/mnist_projnet100.pt"
+PATH_fashion = "../../Models/fashion_projnet100.pt"
 torch.save(ProjNet_mnist.state_dict(), PATH_mnist)
 torch.save(ProjNet_fashion.state_dict(), PATH_fashion)
 
@@ -67,8 +67,8 @@ torch.autograd.set_detect_anomaly(True)
 _, Dyn_acc_train_mnist, _, Dyn_acc_val_mnist = train(DynResNet_mnist,  max_epochs = max_epochs)
 _, Dyn_acc_train_fashion, _, Dyn_acc_val_fashion = train(DynResNet_fashion,  max_epochs = max_epochs)
 #save models
-PATH_mnist = "../../Models/mnist_dynnet.pt"
-PATH_fashion = "../../Models/fashion_dynnet.pt"
+PATH_mnist = "../../Models/mnist_dynnet100.pt"
+PATH_fashion = "../../Models/fashion_dynnet100.pt"
 torch.save(DynResNet_mnist.state_dict(), PATH_mnist)
 torch.save(DynResNet_fashion.state_dict(), PATH_fashion)
 
@@ -132,7 +132,7 @@ plt.legend()
 plt.ylabel('accuracy')
 plt.xlabel('epochs')
 plt.title(r'MNIST vs FashionMNIST ')
-plt.savefig('MNISTvsFashionMNIST_accuracy.png', bbox_inches='tight')
+plt.savefig('MNISTvsFashionMNIST_accuracy100.png', bbox_inches='tight')
 plt.show()
 
 # plot orthogonality
@@ -160,7 +160,7 @@ plt.legend()
 plt.ylabel('error')
 plt.xlabel('layers')
 plt.title(r' $|| I - U^T U ||_F$')
-plt.savefig('MNISTvsFashionMNIST_orthogonalityU.png', bbox_inches='tight')
+plt.savefig('MNISTvsFashionMNIST_orthogonalityU100.png', bbox_inches='tight')
 plt.show()
 
 plt.figure(figsize=(12, 8), dpi=80)
@@ -174,7 +174,7 @@ plt.legend()
 plt.ylabel('error')
 plt.xlabel('layers')
 plt.title(r' $|| I - V^T V ||_F$')
-plt.savefig('MNISTvsFashionMNIST_orthogonalityV.png', bbox_inches='tight')
+plt.savefig('MNISTvsFashionMNIST_orthogonalityV100.png', bbox_inches='tight')
 plt.show()
 
 
@@ -205,7 +205,7 @@ plt.legend()
 plt.ylabel('error')
 plt.xlabel('layers')
 plt.title(r'rank$(X)$')
-plt.savefig('MNISTvsFashionMNIST_ranks.png', bbox_inches='tight')
+plt.savefig('MNISTvsFashionMNIST_ranks100.png', bbox_inches='tight')
 plt.show()
 
 
@@ -242,7 +242,7 @@ plt.legend()
 plt.ylabel('error')
 plt.xlabel('layers')
 plt.title(r' $|| U - \tilde U ||_F$')
-plt.savefig('MNISTvsFashionMNIST_integrationerrorU.png', bbox_inches='tight')
+plt.savefig('MNISTvsFashionMNIST_integrationerrorU100.png', bbox_inches='tight')
 plt.show()
 
 plt.figure(figsize=(12, 8), dpi=80)
@@ -256,5 +256,5 @@ plt.legend()
 plt.ylabel('error')
 plt.xlabel('layers')
 plt.title(r' $|| V - \tilde V ||_F$')
-plt.savefig('MNISTvsFashionMNIST_integrationerrorV.png', bbox_inches='tight')
+plt.savefig('MNISTvsFashionMNIST_integrationerrorV100.png', bbox_inches='tight')
 plt.show()
