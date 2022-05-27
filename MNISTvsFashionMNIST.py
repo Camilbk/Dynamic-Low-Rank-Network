@@ -5,12 +5,12 @@ from networks import ResNet, ProjResNet, DynResNet
 from optimisation import train
 import numpy as np
 
-N = 1500
-V = 1500
+N = 3000
+V = 3000
 batch_size = 5
 
 L = 10
-max_epochs = 30
+max_epochs = 40
 
 plt.rcParams.update({
     "font.size":25})
@@ -31,8 +31,8 @@ _, acc_train_fashion, _, acc_val_fashion = train(net_fashion,  max_epochs = max_
 #save models
 PATH_mnist = "../../Models/mnist_resnet.pt"
 PATH_fashion = "../../Models/fashion_resnet.pt"
-torch.save(net_mnist.state_dict(), PATH_mnist)
-torch.save(net_fashion.state_dict(), PATH_fashion)
+torch.save(net_mnist.best_state, PATH_mnist)
+torch.save(net_fashion.best_state, PATH_fashion)
 
 
 #### PROJECTION RESNET
