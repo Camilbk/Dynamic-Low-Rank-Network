@@ -5,15 +5,35 @@ from networks import ResNet, ProjResNet, DynResNet
 from optimisation import train
 import numpy as np
 
-N = 4000
-V = 4000
-batch_size = 10
+N = 5000
+V = 1500
+batch_size = 30
 
 L = 100
-max_epochs = 40
+max_epochs = 20
 
 plt.rcParams.update({
     "font.size":25})
+
+
+#### DYNAMIC LOW-RANK NET
+# DATA
+data_mnist_svd = mnist( N, V, batch_size, k=3, transform='svd')
+data_fashion_svd = fashionMnist( N, V, batch_size, k=3, transform='svd')
+# NETWORK
+# CONSTRUCT NETWORK
+DynResNet_mnist = DynResNet(data_mnist_svd, L, d_hat='none', use_cayley=False)
+DynResNet_fashion = DynResNet(data_fashion_svd, L, d_hat='none', use_cayley=False)
+# TRAIN NETWORK
+#torch.autograd.set_detect_anomaly(True)
+_, Dyn_acc_train_mnist, _, Dyn_acc_val_mnist = train(DynResNet_mnist,  max_epochs = max_epochs)
+_, Dyn_acc_train_fashion, _, Dyn_acc_val_fashion = train(DynResNet_fashion,  max_epochs = max_epochs)
+#save models
+PATH_mnist = "../../Models/mnist_dynnet100.pt"
+PATH_fashion = "../../Models/fashion_dynnet100.pt"
+torch.save(DynResNet_mnist.state_dict(), PATH_mnist)
+torch.save(DynResNet_fashion.state_dict(), PATH_fashion)
+
 
 
 #### STANDARD RESNET
@@ -22,8 +42,8 @@ data_mnist = mnist( N, V, batch_size, k=28, transform='none')
 data_fashion = fashionMnist( N, V, batch_size, k=28, transform='none')
 # NETWORK
 # CONSTRUCT NETWORK
-net_mnist = ResNet(data_mnist, L=10, trainable_stepsize=True, d_hat='none')
-net_fashion = ResNet(data_fashion, L=10, trainable_stepsize=True, d_hat='none')
+net_mnist = ResNet(data_mnist, L, trainable_stepsize=True, d_hat='none')
+net_fashion = ResNet(data_fashion, L, trainable_stepsize=True, d_hat='none')
 # TRAIN NETWORK
 torch.autograd.set_detect_anomaly(True)
 _, acc_train_mnist, _, acc_val_mnist = train(net_mnist,  max_epochs = max_epochs)
@@ -37,8 +57,8 @@ torch.save(net_fashion.best_state, PATH_fashion)
 
 #### PROJECTION RESNET
 # DATA
-data_mnist_svd = mnist( N, V, batch_size, k=3, transform='svd')
-data_fashion_svd = fashionMnist( N, V, batch_size, k=3, transform='svd')
+#data_mnist_svd = mnist( N, V, batch_size, k=3, transform='svd')
+#data_fashion_svd = fashionMnist( N, V, batch_size, k=3, transform='svd')
 # NETWORK
 # CONSTRUCT NETWORK
 ProjNet_mnist = ProjResNet(data_mnist_svd, L, trainable_stepsize=True, d_hat='none')
@@ -53,24 +73,6 @@ PATH_mnist = "../../Models/mnist_projnet100.pt"
 PATH_fashion = "../../Models/fashion_projnet100.pt"
 torch.save(ProjNet_mnist.state_dict(), PATH_mnist)
 torch.save(ProjNet_fashion.state_dict(), PATH_fashion)
-
-#### DYNAMIC LOW-RANK NET
-# DATA
-data_mnist_svd = mnist( N, V, batch_size, k=3, transform='svd')
-data_fashion_svd = fashionMnist( N, V, batch_size, k=3, transform='svd')
-# NETWORK
-# CONSTRUCT NETWORK
-DynResNet_mnist = DynResNet(data_mnist_svd, L, d_hat='none')
-DynResNet_fashion = DynResNet(data_fashion_svd, L, d_hat='none')
-# TRAIN NETWORK
-torch.autograd.set_detect_anomaly(True)
-_, Dyn_acc_train_mnist, _, Dyn_acc_val_mnist = train(DynResNet_mnist,  max_epochs = max_epochs)
-_, Dyn_acc_train_fashion, _, Dyn_acc_val_fashion = train(DynResNet_fashion,  max_epochs = max_epochs)
-#save models
-PATH_mnist = "../../Models/mnist_dynnet100.pt"
-PATH_fashion = "../../Models/fashion_dynnet100.pt"
-torch.save(DynResNet_mnist.state_dict(), PATH_mnist)
-torch.save(DynResNet_fashion.state_dict(), PATH_fashion)
 
 ### Nice
 

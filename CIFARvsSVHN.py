@@ -5,18 +5,45 @@ from networks import ResNet, ProjTensorResNet, DynTensorResNet
 from optimisation import train
 import numpy as np
 
-N = 1000
-V = 1000
-batch_size = 5
+N = 10000
+V = 5000
+batch_size = 15
 
-L = 3
-max_epochs = 1
+L = 10
+max_epochs = 40
 
 k = 9
 
 plt.rcParams.update({
     "font.size":25})
 
+
+
+#### DYNAMIC LOW-RANK NET
+# DATA
+data_cifar_tucker = cifar10( N, V, batch_size, k=9, transform='tucker')
+data_svhn_tucker = svhn( N, V, batch_size, k=9, transform='tucker')
+# NETWORK
+# CONSTRUCT NETWORK
+DynResNet_cifar = DynTensorResNet(data_cifar_tucker, L, d_hat='none', use_cayley=False)
+DynResNet_svhn = DynTensorResNet(data_svhn_tucker, L, d_hat='none', use_cayley=False)
+# TRAIN NETWORK
+torch.autograd.set_detect_anomaly(True)
+_, Dyn_acc_train_cifar, _, Dyn_acc_val_cifar = train(DynResNet_cifar,  max_epochs = max_epochs)
+print("DynTensorResNet")
+print("cifar")
+print(max(Dyn_acc_train_cifar))
+print(max(Dyn_acc_val_cifar))
+_, Dyn_acc_train_svhn , _, Dyn_acc_val_svhn  = train(DynResNet_svhn,  max_epochs = max_epochs)
+print("svhn ")
+print(max(Dyn_acc_train_svhn ))
+print(max(Dyn_acc_val_svhn))
+print("\n")
+#save models
+PATH_cifar = "../../Models/cifar_dynnet.pt"
+PATH_svhn = "../../Models/svhn_dynnet.pt"
+torch.save(DynResNet_cifar.best_state, PATH_cifar)
+torch.save(DynResNet_svhn.best_state, PATH_svhn)
 
 #### STANDARD TENSOR RESNET
 # DATA
@@ -29,7 +56,14 @@ net_svhn = ResNet(data_svhn, L=L, trainable_stepsize=True, d_hat='none')
 # TRAIN NETWORK
 torch.autograd.set_detect_anomaly(True)
 _, acc_train_cifar, _, acc_val_cifar = train(net_cifar,  max_epochs = max_epochs)
+print("ResNet")
+print("cifar10")
+print(max(acc_train_cifar))
+print(max(acc_val_cifar))
 _, acc_train_svhn, _, acc_val_svhn = train(net_svhn,  max_epochs = max_epochs)
+print("svhn")
+print(max(acc_train_svhn))
+print(max(acc_val_svhn))
 #save models
 PATH_cifar = "../../Models/cifar_resnet.pt"
 PATH_svhn = "../../Models/svhn_resnet.pt"
@@ -38,8 +72,8 @@ torch.save(net_svhn.best_state, PATH_svhn)
 
 #### PROJECTION TENSOR RESNET
 # DATA
-data_cifar_tucker = cifar10( N, V, batch_size, k=k, transform='tucker')
-data_svhn_tucker = svhn( N, V, batch_size, k=k, transform='tucker')
+#data_cifar_tucker = cifar10( N, V, batch_size, k=k, transform='tucker')
+#data_svhn_tucker = svhn( N, V, batch_size, k=k, transform='tucker')
 # NETWORK
 # CONSTRUCT NETWORK
 ProjNet_cifar = ProjTensorResNet(data_cifar_tucker, L, trainable_stepsize=True, d_hat='none')
@@ -54,24 +88,6 @@ PATH_svhn = "../../Models/svhn_projnet.pt"
 torch.save(ProjNet_cifar.best_state, PATH_cifar)
 torch.save(ProjNet_svhn.best_state, PATH_svhn)
 
-
-#### DYNAMIC LOW-RANK NET
-# DATA
-#data_cifar_tucker = cifar10( N, V, batch_size, k=9, transform='tucker')
-#data_svhn_tucker = svhn( N, V, batch_size, k=9, transform='tucker')
-# NETWORK
-# CONSTRUCT NETWORK
-DynResNet_cifar = DynTensorResNet(data_cifar_tucker, L, d_hat='none')
-DynResNet_svhn = DynTensorResNet(data_svhn_tucker, L, d_hat='none')
-# TRAIN NETWORK
-torch.autograd.set_detect_anomaly(True)
-_, Dyn_acc_train_cifar, _, Dyn_acc_val_cifar = train(DynResNet_cifar,  max_epochs = max_epochs)
-_, Dyn_acc_train_svhn , _, Dyn_acc_val_svhn  = train(DynResNet_svhn,  max_epochs = max_epochs)
-#save models
-PATH_cifar = "../../Models/cifar_dynnet.pt"
-PATH_svhn = "../../Models/svhn_dynnet.pt"
-torch.save(DynResNet_cifar.best_state, PATH_cifar)
-torch.save(DynResNet_svhn.best_state, PATH_svhn)
 
 print("ResNet")
 print("cifar10")
@@ -179,7 +195,7 @@ plt.plot(range(len(err_U3_Proj_cifar)), err_U3_Proj_cifar, 'tab:green', label = 
 plt.plot(range(len(err_U3_Proj_svhn)), err_U3_Proj_svhn, 'tab:cyan', label = 'Proj. svhn' )
 # DynNet
 plt.plot(range(len(err_U3_Dyn_cifar)), err_U3_Dyn_cifar, 'tab:brown', label = 'Dyn. cifar' )
-plt.plot(range(len(err_U3_Dyn_svhn)), err_U3_Dyn_svhn, 'tab:gray', label = 'Dyn. cifar' )
+plt.plot(range(len(err_U3_Dyn_svhn)), err_U3_Dyn_svhn, 'tab:gray', label = 'Dyn. svhn' )
 plt.legend()
 plt.ylabel('error')
 plt.xlabel('layers')

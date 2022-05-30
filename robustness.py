@@ -119,7 +119,7 @@ def plot_adversarial_examples(epsilons, examples, k=28, transform=None ):
             plt.xticks([], [])
             plt.yticks([], [])
             if j == 0:
-                plt.ylabel("Eps: {}".format(epsilons[i]), fontsize=14)
+                plt.ylabel(r'$\epsilon = ${}'.format(epsilons[i]), fontsize=14)
             orig,adv,ex = examples[i][j]
             plt.title("{} -> {}".format(orig, adv))
             if transform == 'svd':
@@ -132,7 +132,6 @@ def plot_adversarial_examples(epsilons, examples, k=28, transform=None ):
                 ex = ex.reshape((n,n))
             plt.imshow(ex)
     plt.tight_layout()
-    plt.show()
 
 def load_model(net, data_object, L, path, use_cuda=True):
     print("CUDA Available: ",torch.cuda.is_available())

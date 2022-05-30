@@ -31,8 +31,12 @@ def cay(C, D):
     """
     Id = torch.eye(C.shape[1])
     DT = torch.transpose(D, 1, 2)
-    inv = torch.inverse(Id - 0.5 * DT @ C)
+    inv = torch.pinverse(Id - 0.5 * DT @ C)
     return Id + C @ inv @ DT
+
+
+
+
 
 
 ################################################################################
@@ -77,6 +81,8 @@ class ResNet(nn.Module):
         self.k = data_object.k
         self.image_dimension = data_object.image_dimension
         self.transform = data_object.transform
+        self.train_accuracy = np.empty(0)
+        self.validation_accuracy = np.empty(0)
         h = torch.Tensor(1)
         h[0] = 1 / L
         self.data_object = data_object
@@ -228,6 +234,8 @@ class SVDResNet(nn.Module):
         self.L = L
         self.k = data_object.k
         self.image_dimension = data_object.image_dimension  # typ 28*28 or 32*32
+        self.train_accuracy = np.empty(0)
+        self.validation_accuracy = np.empty(0)
         self.dim = int(np.sqrt(self.image_dimension))
         self.transform = data_object.transform
         h = torch.Tensor(1)
@@ -519,15 +527,20 @@ class DynResNet(nn.Module):
     and given by softmax function in case of general labels.
     """
 
-    def __init__(self, data_object, L, d_hat='none'):
+    def __init__(self, data_object, L, d_hat='none', use_cayley = True):
         super(DynResNet, self).__init__()
 
         assert data_object.transform == 'svd'
 
         self.data_object = data_object
+        self.train_accuracy = np.empty(0)
+        self.validation_accuracy = np.empty(0)
         self.k = data_object.k
         self.d_hat = d_hat
         self.L = L
+        self.use_cayley = use_cayley
+        if L > 99:
+            self.use_cayley = False # repeating singular values
         self.h = 0.001
 
         K = len(data_object.labels_map)
@@ -639,10 +652,11 @@ class DynResNet(nn.Module):
             FT = torch.transpose(F, 1, 2)
 
             u_tilde = self.h * (F @ uT - u @ FT)@u   # Propagation in direction of tangent
-            project = cay(self.h * (F @ uT), - self.h * (u @ FT))@u
-            self.integration_error[:, 0, i] = norm(project - u_tilde)
-
-            u = cay(self.h * (F @ uT), - self.h * (u @ FT)) @ u  # Project onto stiefel from tangent space
+            if self.use_cayley == True:
+                u = cay(self.h * (F @ uT), - self.h * (u @ FT)) @ u  # Project onto stiefel from tangent space
+            else:
+                u = torch.matrix_exp( self.h * (F @ uT - u @ FT) ) @u
+            self.integration_error[:, 0, i] = norm(u - u_tilde)
 
             ######
             Id = torch.eye(v.shape[1])  # kan lagre I i minne så man slipper å lage denne hver gang
@@ -653,9 +667,11 @@ class DynResNet(nn.Module):
             FT = torch.transpose(F, 1, 2)
 
             v_tilde = self.h * (F @ vT - v @ FT)@v   # Propagation in direction of tangent
-            project =  cay(self.h * (F @ vT), - self.h * (v @ FT))@v
-            v = cay(self.h * (F @ vT), - self.h * (v @ FT)) @ v  # Project onto stiefel from tangent space
-            self.integration_error[:, 1, i] = norm(project - v_tilde)
+            if self.use_cayley == True:
+                v = cay(self.h * (F @ vT), - self.h * (v @ FT)) @ v  # Project onto stiefel from tangent space
+            else:
+                v = torch.matrix_exp(self.h * (F @ vT - v @ FT)) @ v
+            self.integration_error[:, 1, i] = norm(v - v_tilde)
             # u = tangent_projection(u, dU, self.h)
             # v = tangent_projection(v, dV, self.h)
             ######
@@ -819,16 +835,21 @@ class DynTensorResNet(nn.Module):
     and given by softmax function in case of general labels.
     """
 
-    def __init__(self, data_object, L, d_hat='none'):
+    def __init__(self, data_object, L, d_hat='none', use_cayley = True):
         super(DynTensorResNet, self).__init__()
 
         #assert data_object.transform == 'tucker'
+        self.train_accuracy = np.empty(0)
+        self.validation_accuracy = np.empty(0)
         self.n_channels = data_object.n_channels
         self.h = 0.1 / L
         self.data_object = data_object
         self.k = data_object.k
         self.d_hat = d_hat
         self.L = L
+        self.use_cayley = use_cayley
+        if L > 99:
+            self.use_cayley = False
         state = self.state_dict()
         self.best_state = state
         K = len(data_object.labels_map)
@@ -982,19 +1003,23 @@ class DynTensorResNet(nn.Module):
             FU3T = torch.transpose(FU3, 1, 2)
 
             u1_tilde = self.h * (FU1 @ U1T - U1 @ FU1T)
-            integrate_u1 = cay(FU1 @ U1T, - self.h * (U1 @ FU1T))
-            self.integration_error[:, 0, i] = norm(integrate_u1 - u1_tilde)
-
             u2_tilde = self.h * (FU2 @ U2T - U2 @ FU2T)
-            integrate_u2 = cay(self.h * (FU2 @ U2T), - self.h * (U2 @ FU2T))
-            self.integration_error[:, 1, i] = norm(integrate_u2 - u2_tilde)
-
             u3_tilde = self.h * (FU3 @ U3T - U3 @ FU3T)
-            integrate_u3 = cay(self.h * (FU3 @ U3T), - self.h * (U3 @ FU3T))
+
+            if self.use_cayley == True:
+                integrate_u1 = cay(FU1 @ U1T, - self.h * (U1 @ FU1T))
+                integrate_u2 = cay(self.h * (FU2 @ U2T), - self.h * (U2 @ FU2T))
+                integrate_u3 = cay(self.h * (FU3 @ U3T), - self.h * (U3 @ FU3T))
+            else:
+                integrate_u1 = torch.matrix_exp(u1_tilde)
+                integrate_u2 = torch.matrix_exp(u2_tilde)
+                integrate_u3 = torch.matrix_exp(u3_tilde)
+
+            self.integration_error[:, 0, i] = norm(integrate_u1 - u1_tilde)
+            self.integration_error[:, 1, i] = norm(integrate_u2 - u2_tilde)
             self.integration_error[:, 2, i] = norm(integrate_u3 - u3_tilde)
 
             U1 = integrate_u1 @ U1  # Project onto stiefel from tangent space
-            #print(check_orthogonality(U1))
             U2 = integrate_u2 @ U2  # Project onto stiefel from tangent space
             U3 = integrate_u3 @ U3  # Project onto stiefel from tangent space
 
@@ -1196,6 +1221,8 @@ class ProjResNet(nn.Module):
         self.transform = data_object.transform
         self.k = data_object.k
         self.d_hat = d_hat
+        self.train_accuracy = np.empty(0)
+        self.validation_accuracy = np.empty(0)
 
         self.L = L
         self.type = projection_type
@@ -1627,6 +1654,8 @@ class ProjTensorResNet(nn.Module):
         self.data_object = data_object
         self.k = data_object.k
         self.d_hat = d_hat
+        self.train_accuracy = np.empty(0)
+        self.validation_accuracy = np.empty(0)
         self.L = L
         self.h = 1  # Standard ResNet
         if not trainable_stepsize:

@@ -1,3 +1,4 @@
+import numpy
 import torch
 import torch.optim as optim
 import loss
@@ -146,6 +147,8 @@ def train(net, optim_method='adam', lr=1e-1,
             prev_acc = acc_val[-1]
             acc_val.append(accuracy.acc(C_val, C_pred).item())
             this_acc = acc_val[-1]
+            numpy.append( net.train_accuracy, acc_train[-1])
+            numpy.append( net.validation_accuracy, acc_val[-1])
             if this_acc > prev_acc:
                 net.best_state = net.state_dict() #saves parameters at best validation accuracy
 
