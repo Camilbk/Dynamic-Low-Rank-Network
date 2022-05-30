@@ -6,11 +6,19 @@ from optimisation import train
 import numpy as np
 
 N = 10000
+<<<<<<< HEAD
 V = 5000
 batch_size = 15
 
 L = 10
 max_epochs = 40
+=======
+V = 10000
+batch_size = 32
+
+L = 10
+max_epochs = 50
+>>>>>>> bfa1792d3f6dfe7a9ba47a8b5d9b7ec11f171804
 
 k = 9
 
