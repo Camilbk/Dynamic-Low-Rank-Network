@@ -6,6 +6,7 @@ from torch.linalg import svd, qr
 from torchvision.transforms.functional import rgb_to_grayscale
 
 from tensorly.decomposition import tucker
+from tensorly.tucker_tensor import tucker_to_tensor
 
 class toydataset(Dataset):
     """Dataset for toydata.
@@ -505,6 +506,8 @@ def data_transform(transform, t, k):
         return polar_decomp(t, k)
     if transform == 'tucker':
         return tucker_decomposition(t,k)
+    if transform == 'truncated tucker':
+        return truncated_tucker(t,k)
     if transform == 'grayscale':
         return torch.flatten(rgb_to_grayscale(img = t, num_output_channels=1))
     if transform == 'none':
@@ -588,6 +591,11 @@ def tucker_decomposition(t, k):
     tucker_decomposition[5] = torch.flatten(torch.from_numpy(U3))
 
     return tucker_decomposition
+
+def truncated_tucker(t,k): 
+    decomp = tucker(t.numpy(), rank=[3, k, k])
+    t = tucker_to_tensor(decomp)
+    return torch.from_numpy(t)
 
 def from_tucker_decomposition(decomp, k):
     """
