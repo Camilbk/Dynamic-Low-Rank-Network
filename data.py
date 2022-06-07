@@ -595,7 +595,7 @@ def tucker_decomposition(t, k):
 def truncated_tucker(t,k): 
     decomp = tucker(t.numpy(), rank=[3, k, k])
     t = tucker_to_tensor(decomp)
-    return torch.from_numpy(t)
+    return torch.flatten(torch.from_numpy(t), 1,2)
 
 def from_tucker_decomposition(decomp, k):
     """
