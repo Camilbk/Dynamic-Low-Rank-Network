@@ -10,8 +10,8 @@ epsilons = [0, .05, .1, .15, .2, .25, .3]
 
 N = 1500
 V = 1500
-batch_size = 5
-max_epochs = 30
+batch_size = 20
+max_epochs = 50
 k = 9
 
 plt.rcParams.update({
@@ -55,7 +55,7 @@ plt.ylabel('accuracy')
 plt.xlabel('epochs')
 plt.title(r'Convergence of ResNets on SVHN  ')
 plt.savefig('ResNetRankEvol_Accuracy_svhn_compressed_10.png', bbox_inches='tight')
-plt.show()
+#plt.show()
 
 plt.figure(figsize=(5,5))
 plt.plot(epsilons, accuracies, ".-", label = "svhn-10")
@@ -68,16 +68,16 @@ plt.xlabel("Epsilon")
 plt.legend()
 plt.ylabel("Accuracy")
 plt.savefig('SVHN_AdversarialAttack_compressions_10.png', bbox_inches='tight')
-plt.show()
+#plt.show()
 
 plt.rcParams.update({
     "font.size":14})
 
 plot_adversarial_examples(epsilons, examples_c)
 plt.savefig('SVHN_AdversaialExamples_c.png', bbox_inches='tight')
-plot_adversarial_examples(epsilons, examples_r)
+#plot_adversarial_examples(epsilons, examples_r)
 plt.savefig('SVHN_AdversaialExamples_r.png', bbox_inches='tight')
-plt.show()
+#plt.show()
 
 plt.rcParams.update({
     "font.size":30})
