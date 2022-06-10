@@ -508,6 +508,8 @@ def data_transform(transform, t, k):
         return truncated_tucker(t, k)
     if transform == 'tucker':
         return tucker_decomposition(t,k)
+    if transform == 'truncated tucker':
+        return truncated_tucker(t,k)
     if transform == 'grayscale':
         return torch.flatten(rgb_to_grayscale(img = t, num_output_channels=1))
     if transform == 'none':
@@ -591,6 +593,11 @@ def tucker_decomposition(t, k):
     tucker_decomposition[5] = torch.flatten(torch.from_numpy(U3))
 
     return tucker_decomposition
+
+def truncated_tucker(t,k): 
+    decomp = tucker(t.numpy(), rank=[3, k, k])
+    t = tucker_to_tensor(decomp)
+    return torch.flatten(torch.from_numpy(t), 1,2)
 
 def from_tucker_decomposition(decomp, k):
     """
