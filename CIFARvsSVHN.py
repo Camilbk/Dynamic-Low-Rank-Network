@@ -5,25 +5,17 @@ from networks import ResNet, ProjTensorResNet, DynTensorResNet
 from optimisation import train
 import numpy as np
 
-N = 10000
-<<<<<<< HEAD
-V = 5000
-batch_size = 15
+N = 4000
+V = 1000
+batch_size = 20
 
-L = 10
-max_epochs = 40
-=======
-V = 10000
-batch_size = 32
-
-L = 10
-max_epochs = 50
->>>>>>> bfa1792d3f6dfe7a9ba47a8b5d9b7ec11f171804
+L = 100
+max_epochs = 20
 
 k = 9
 
 plt.rcParams.update({
-    "font.size":25})
+    "font.size":30})
 
 
 
@@ -48,8 +40,8 @@ print(max(Dyn_acc_train_svhn ))
 print(max(Dyn_acc_val_svhn))
 print("\n")
 #save models
-PATH_cifar = "../../Models/cifar_dynnet.pt"
-PATH_svhn = "../../Models/svhn_dynnet.pt"
+PATH_cifar = "../../Models/cifar_dynnet%i.pt" %L
+PATH_svhn = "../../Models/svhn_dynnet%i.pt" %L
 torch.save(DynResNet_cifar.best_state, PATH_cifar)
 torch.save(DynResNet_svhn.best_state, PATH_svhn)
 
@@ -73,8 +65,8 @@ print("svhn")
 print(max(acc_train_svhn))
 print(max(acc_val_svhn))
 #save models
-PATH_cifar = "../../Models/cifar_resnet.pt"
-PATH_svhn = "../../Models/svhn_resnet.pt"
+PATH_cifar = "../../Models/cifar_resnet%i.pt" %L
+PATH_svhn = "../../Models/svhn_resnet%i.pt" %L
 torch.save(net_cifar.best_state, PATH_cifar)
 torch.save(net_svhn.best_state, PATH_svhn)
 
@@ -91,8 +83,8 @@ torch.autograd.set_detect_anomaly(True)
 _, Proj_acc_train_cifar, _, Proj_acc_val_cifar = train(ProjNet_cifar,  max_epochs = max_epochs)
 _, Proj_acc_train_svhn, _, Proj_acc_val_svhn = train(ProjNet_svhn,  max_epochs = max_epochs)
 #save models
-PATH_cifar = "../../Models/cifar_projnet.pt"
-PATH_svhn = "../../Models/svhn_projnet.pt"
+PATH_cifar = "../../Models/cifar_projnet%i.pt" %L
+PATH_svhn = "../../Models/svhn_projnet%i.pt" %L
 torch.save(ProjNet_cifar.best_state, PATH_cifar)
 torch.save(ProjNet_svhn.best_state, PATH_svhn)
 
@@ -149,7 +141,7 @@ plt.legend()
 plt.ylabel('accuracy')
 plt.xlabel('epochs')
 plt.title(r'CIFAR10 vs SVHN ')
-plt.savefig('CIFARvsSVHN_accuracy.png', bbox_inches='tight')
+plt.savefig('CIFARvsSVHN_accuracy%i.png' %L, bbox_inches='tight')
 plt.show()
 
 
@@ -179,7 +171,7 @@ plt.legend()
 plt.ylabel('error')
 plt.xlabel('layers')
 plt.title(r' $|| I - U_1^T U_1 ||_F$')
-plt.savefig('CIFARvsSVHN_orthogonalityU1.png', bbox_inches='tight')
+plt.savefig('CIFARvsSVHN_orthogonalityU1_%i.png' %L, bbox_inches='tight')
 plt.show()
 
 plt.figure(figsize=(12, 8), dpi=80)
@@ -193,7 +185,7 @@ plt.legend()
 plt.ylabel('error')
 plt.xlabel('layers')
 plt.title(r' $|| I - U_2^T U_2 ||_F$')
-plt.savefig('CIFARvsSVHN_orthogonalityU2.png', bbox_inches='tight')
+plt.savefig('CIFARvsSVHN_orthogonalityU2_%i.png' %L, bbox_inches='tight')
 plt.show()
 
 
@@ -208,7 +200,7 @@ plt.legend()
 plt.ylabel('error')
 plt.xlabel('layers')
 plt.title(r' $|| I - U_3^T U_3 ||_F$')
-plt.savefig('CIFARvsSVHN_orthogonalityU3.png', bbox_inches='tight')
+plt.savefig('CIFARvsSVHN_orthogonalityU3_%i.png' %L, bbox_inches='tight')
 plt.show()
 
 
@@ -250,7 +242,7 @@ plt.legend()
 plt.ylabel('error')
 plt.xlabel('layers')
 plt.title(r' $|| U_1 - \tilde U_1 ||_F$')
-plt.savefig('CIFARvsSVHN_integrationerrorU1.png', bbox_inches='tight')
+plt.savefig('CIFARvsSVHN_integrationerrorU1_%i.png' %L, bbox_inches='tight')
 plt.show()
 
 plt.figure(figsize=(12, 8), dpi=80)
@@ -264,7 +256,7 @@ plt.legend()
 plt.ylabel('error')
 plt.xlabel('layers')
 plt.title(r' $|| U_2 - \tilde U_2 ||_F$')
-plt.savefig('CIFARvsSVHN_integrationerrorU2.png', bbox_inches='tight')
+plt.savefig('CIFARvsSVHN_integrationerrorU2_%i.png' %L, bbox_inches='tight')
 plt.show()
 
 plt.figure(figsize=(12, 8), dpi=80)
@@ -278,5 +270,5 @@ plt.legend()
 plt.ylabel('error')
 plt.xlabel('layers')
 plt.title(r' $|| U_3 - \tilde U_3 ||_F$')
-plt.savefig('CIFARvsSVHN_integrationerrorU3.png', bbox_inches='tight')
+plt.savefig('CIFARvsSVHN_integrationerrorU3_%i.png' %L, bbox_inches='tight')
 plt.show()

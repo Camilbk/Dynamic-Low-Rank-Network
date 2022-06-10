@@ -89,6 +89,7 @@ def test(model, device, test_loader, epsilon):
         #print("final", final_pred.item())
         #print("truth", target.item())
         #print("\n")
+
         if final_pred.item() == target.item():
             correct += 1
             # Special case for saving 0 epsilon examples
@@ -111,15 +112,18 @@ def test(model, device, test_loader, epsilon):
 # Plot several examples of adversarial samples at each epsilon
 def plot_adversarial_examples(epsilons, examples, k=28, transform=None ):
     cnt = 0
-    plt.figure(figsize=(8,10))
+    plt.figure(figsize=(4,10))
     for i in range(len(epsilons)):
-        for j in range(len(examples[i])):
+        # n_examples = len(examples[i])
+        n_examples = 3
+        for j in range(n_examples):
             cnt += 1
-            plt.subplot(len(epsilons),len(examples[0]),cnt)
+            plt.subplot(len(epsilons),n_examples,cnt)
             plt.xticks([], [])
             plt.yticks([], [])
             if j == 0:
                 plt.ylabel(r'$\epsilon = ${}'.format(epsilons[i]), fontsize=14)
+
             orig,adv,ex = examples[i][j]
             plt.title("{} -> {}".format(orig, adv))
             if transform == 'svd':
@@ -128,8 +132,13 @@ def plot_adversarial_examples(epsilons, examples, k=28, transform=None ):
                 ex = tucker_to_tensor( from_tucker_decomposition(ex, k))
             else:
                 flattened_size = ex.shape[0]
-                n = int(np.sqrt(flattened_size))
-                ex = ex.reshape((n,n))
+                if flattened_size == 3 : # then this is a tensor
+                    n = 32
+                    ex = ex.reshape((3, n, n))
+                    ex = ex.T
+                else:
+                    n = int(np.sqrt(flattened_size))
+                    ex = ex.reshape((n,n))
             plt.imshow(ex)
     plt.tight_layout()
 

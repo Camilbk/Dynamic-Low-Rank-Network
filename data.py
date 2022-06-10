@@ -1,11 +1,12 @@
 import torch
 from torchvision import datasets
-from torchvision.transforms import ToTensor, Lambda, Compose, Grayscale
+from torchvision.transforms import ToTensor, Lambda, Compose
 from torch.utils.data import Dataset, DataLoader
 from torch.linalg import svd, qr
 from torchvision.transforms.functional import rgb_to_grayscale
 
 from tensorly.decomposition import tucker
+from tensorly.tucker_tensor import tucker_to_tensor
 
 class toydataset(Dataset):
     """Dataset for toydata.
@@ -503,6 +504,8 @@ def data_transform(transform, t, k):
         return qr_decomp(t, k)
     if transform == 'polar':
         return polar_decomp(t, k)
+    if transform == 'truncated tucker':
+        return truncated_tucker(t, k)
     if transform == 'tucker':
         return tucker_decomposition(t,k)
     if transform == 'grayscale':
@@ -643,6 +646,10 @@ def qr_decomp(t, k):
 
     return QR
 
+def truncated_tucker(t,k):
+    decomp = tucker(t.numpy(), rank=[3, k, k])
+    t = tucker_to_tensor(decomp)
+    return torch.flatten(torch.from_numpy(t).float(), 1,2)
 
 def polar_decomp(t, k):
     """
@@ -670,9 +677,9 @@ def polar_decomp(t, k):
     return UP
 
 def restore_svd(data, k):
-    u = data[0].reshape(28, 3)
-    s = data[1].reshape(28, 3)
+    u = data[0].reshape(28, k)
+    s = data[1].reshape(28, k)
     s = s[0:k, 0:k]
-    v = data[2].reshape(3, 28)
+    v = data[2].reshape(k, 28)
 
     return u @ s @ v

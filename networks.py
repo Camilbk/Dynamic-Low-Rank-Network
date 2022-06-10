@@ -7,6 +7,8 @@ from matplotlib import pyplot as plt
 from torch.linalg import matrix_rank
 import prediction
 from data import from_tucker_decomposition
+from tensorly.decomposition import tucker
+from tensorly.tucker_tensor import tucker_to_tensor
 
 import tensorly as tl
 from tensorly import unfold
@@ -33,10 +35,6 @@ def cay(C, D):
     DT = torch.transpose(D, 1, 2)
     inv = torch.pinverse(Id - 0.5 * DT @ C)
     return Id + C @ inv @ DT
-
-
-
-
 
 
 ################################################################################
@@ -73,7 +71,7 @@ class ResNet(nn.Module):
     and given by softmax function in case of general labels.
     """
 
-    def __init__(self, data_object, L, trainable_stepsize=True, d_hat='none'):
+    def __init__(self, data_object, L, trainable_stepsize=True, d_hat='none', perform_svd = False):
         super(ResNet, self).__init__()
 
         self.d_hat = d_hat
@@ -81,6 +79,7 @@ class ResNet(nn.Module):
         self.k = data_object.k
         self.image_dimension = data_object.image_dimension
         self.transform = data_object.transform
+        self.perform_svd = perform_svd
         self.train_accuracy = np.empty(0)
         self.validation_accuracy = np.empty(0)
         h = torch.Tensor(1)
@@ -134,6 +133,7 @@ class ResNet(nn.Module):
         """
         self.X_transformed = torch.empty(X.shape[0], self.image_dimension*self.n_channels, self.L + 1)
         X = torch.reshape(X, (X.shape[0], self.image_dimension*self.n_channels))
+        n = int(np.sqrt(self.image_dimension))
         # propagate data through network (forward pass)
         for i, layer in enumerate(self.layers):
             # input layer with no activation
@@ -142,6 +142,17 @@ class ResNet(nn.Module):
             # residual layers
             else:
                 X = X + self.h * self.act(layer(X))
+
+            if self.perform_svd == True:
+                if self.transform == 'truncated svd':
+                    u, s, vh = svd(X.unflatten(1, (n, n)))
+                    X = torch.flatten(u[:, :, 0:self.k] @ torch.diag_embed(s[:, 0:self.k]) @ vh[:, 0:self.k, :], 1, 2)
+                if self.transform == 'truncated trucker':
+                    t = X.unflatten(1, (self.n_channels, n, n))
+                    decomp = tucker(t.numpy(), rank=[3, self.k, self.k])
+                    t = tucker_to_tensor(decomp)
+                    X =  torch.flatten(torch.from_numpy(t), 1, 2)
+
             self.X_transformed[:, :, i] = X
 
         # apply classifier
@@ -291,6 +302,7 @@ class SVDResNet(nn.Module):
         """
 
         def svd_projection(X):
+            # this is not used, just an idea
             d = int(np.sqrt(self.image_dimension))
             u = X[:, 0, :].unflatten(1, (d, k))
             s = X[:, 1, :].unflatten(1, (d, k))
@@ -318,13 +330,12 @@ class SVDResNet(nn.Module):
                 d = int(np.sqrt(self.image_dimension))
                 if i == 0:
                     X = layer(X)
-                    u, s, vh = svd(X.unflatten(1, (d, d)))
-                    X = torch.flatten(u[:, :, 0:k] @ torch.diag_embed(s[:, 0:k]) @ vh[:, 0:k, :], 1, 2)
                 # residual layers
                 else:
                     X = X + self.h * self.act(layer(X))
-                    u, s, vh = svd(X.unflatten(1, (d, d)))
-                    X = torch.flatten(u[:, :, 0:k] @ torch.diag_embed(s[:, 0:k]) @ vh[:, 0:k, :], 1, 2)
+
+                u, s, vh = svd(X.unflatten(1, (d, d)))
+                X = torch.flatten(u[:, :, 0:k] @ torch.diag_embed(s[:, 0:k]) @ vh[:, 0:k, :], 1, 2)
                 X_transformed[:, :, i] = X
         else:
             X_transformed = torch.empty(X.shape[0], self.n_matrices, self.dim * self.k, self.L + 1)
@@ -527,7 +538,7 @@ class DynResNet(nn.Module):
     and given by softmax function in case of general labels.
     """
 
-    def __init__(self, data_object, L, d_hat='none', use_cayley = True):
+    def __init__(self, data_object, L, d_hat='none', use_cayley = True, trainable_stepsize = False):
         super(DynResNet, self).__init__()
 
         assert data_object.transform == 'svd'
@@ -542,6 +553,10 @@ class DynResNet(nn.Module):
         if L > 99:
             self.use_cayley = False # repeating singular values
         self.h = 0.001
+        if trainable_stepsize == True:
+            h = torch.Tensor(1)
+            h[0] = 1 / L
+            self.h = nn.Parameter(h, requires_grad=True)
 
         K = len(data_object.labels_map)
         batch_size, n_matrices, self.d = data_object.all_data[0].shape  # [1500, 3, 28*k] if  svd
@@ -655,7 +670,7 @@ class DynResNet(nn.Module):
             if self.use_cayley == True:
                 u = cay(self.h * (F @ uT), - self.h * (u @ FT)) @ u  # Project onto stiefel from tangent space
             else:
-                u = torch.matrix_exp( self.h * (F @ uT - u @ FT) ) @u
+                u = torch.matrix_exp( self.h * (F @ uT - u @ FT) ) @ u
             self.integration_error[:, 0, i] = norm(u - u_tilde)
 
             ######
@@ -1320,6 +1335,18 @@ class ProjResNet(nn.Module):
             integration_error = torch.empty(X.shape[0], 2, self.L + 1)
         else:
             integration_error = torch.empty(X.shape[0], self.L + 1)
+
+        u = X[:,0]
+        s = X[:,1]
+        vh = X[:,2]
+        v  = transpose(vh.unflatten(1, (k, self.dim)),1,2)
+        v = torch.flatten(v, 1,2)
+        Y = torch.empty(X.shape)
+        Y[:,0] = u
+        Y[:,1] = s
+        Y[:,2] = v
+        X = Y
+
         # propagate data through network (forward pass)
         self.integration_error = integration_error
         for i, layer in enumerate(self.layers):
@@ -1342,8 +1369,8 @@ class ProjResNet(nn.Module):
                     X = layer(X)
                     # Projection on to Stiefel
                     U_tilde = X[:, 0].unflatten(1, (self.dim, k))
-                    Vh_tilde = X[:, 2].unflatten(1, (k, self.dim))
-                    V_tilde = transpose(Vh_tilde, 1, 2)  # comes out of propagated SVD, so this is (still) the transpose
+                    V_tilde = X[:, 2].unflatten(1, (self.dim, k))
+
                     S = X[:, 1]
                     U = projection(U_tilde, self.type)
                     V = projection(V_tilde, self.type)
@@ -1422,7 +1449,7 @@ class ProjResNet(nn.Module):
             S = X[:, 1].unflatten(1, (self.dim, k))
             S = S[:, 0:k, 0:k]
             V = X[:, 2].unflatten(1, (self.dim, k))
-            X = U @ S @ torch.transpose(V, 1, 2)
+            X = U @ S @ transpose(V, 1,2 )
             X = torch.flatten(X, 1, 2)
 
         elif self.transform == 'polar':

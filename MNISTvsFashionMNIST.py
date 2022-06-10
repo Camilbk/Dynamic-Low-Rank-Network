@@ -10,7 +10,7 @@ V = 1500
 batch_size = 30
 
 L = 100
-max_epochs = 20
+max_epochs = 30
 
 plt.rcParams.update({
     "font.size":25})
@@ -29,8 +29,8 @@ DynResNet_fashion = DynResNet(data_fashion_svd, L, d_hat='none', use_cayley=Fals
 _, Dyn_acc_train_mnist, _, Dyn_acc_val_mnist = train(DynResNet_mnist,  max_epochs = max_epochs)
 _, Dyn_acc_train_fashion, _, Dyn_acc_val_fashion = train(DynResNet_fashion,  max_epochs = max_epochs)
 #save models
-PATH_mnist = "../../Models/mnist_dynnet100.pt"
-PATH_fashion = "../../Models/fashion_dynnet100.pt"
+PATH_mnist = "../../Models/mnist_dynnet%i.pt" %L
+PATH_fashion = "../../Models/fashion_dynnet%i.pt" %L
 torch.save(DynResNet_mnist.state_dict(), PATH_mnist)
 torch.save(DynResNet_fashion.state_dict(), PATH_fashion)
 
@@ -49,16 +49,17 @@ torch.autograd.set_detect_anomaly(True)
 _, acc_train_mnist, _, acc_val_mnist = train(net_mnist,  max_epochs = max_epochs)
 _, acc_train_fashion, _, acc_val_fashion = train(net_fashion,  max_epochs = max_epochs)
 #save models
-PATH_mnist = "../../Models/mnist_resnet100.pt"
-PATH_fashion = "../../Models/fashion_resnet100.pt"
+PATH_mnist = "../../Models/mnist_resnet%i.pt" %L
+PATH_fashion = "../../Models/fashion_resnet%i.pt" %L
 torch.save(net_mnist.best_state, PATH_mnist)
 torch.save(net_fashion.best_state, PATH_fashion)
 
 
+
 #### PROJECTION RESNET
 # DATA
-#data_mnist_svd = mnist( N, V, batch_size, k=3, transform='svd')
-#data_fashion_svd = fashionMnist( N, V, batch_size, k=3, transform='svd')
+data_mnist_svd = mnist( N, V, batch_size, k=3, transform='svd')
+data_fashion_svd = fashionMnist( N, V, batch_size, k=3, transform='svd')
 # NETWORK
 # CONSTRUCT NETWORK
 ProjNet_mnist = ProjResNet(data_mnist_svd, L, trainable_stepsize=True, d_hat='none')
@@ -69,8 +70,8 @@ _, Proj_acc_train_mnist, _, Proj_acc_val_mnist = train(ProjNet_mnist,  max_epoch
 _, Proj_acc_train_fashion, _, Proj_acc_val_fashion = train(ProjNet_fashion,  max_epochs = max_epochs)
 
 #save models
-PATH_mnist = "../../Models/mnist_projnet100.pt"
-PATH_fashion = "../../Models/fashion_projnet100.pt"
+PATH_mnist = "../../Models/mnist_projnet%i.pt" %L
+PATH_fashion = "../../Models/fashion_projnet%i.pt" %L
 torch.save(ProjNet_mnist.state_dict(), PATH_mnist)
 torch.save(ProjNet_fashion.state_dict(), PATH_fashion)
 
@@ -134,7 +135,7 @@ plt.legend()
 plt.ylabel('accuracy')
 plt.xlabel('epochs')
 plt.title(r'MNIST vs FashionMNIST ')
-plt.savefig('MNISTvsFashionMNIST_accuracy100.png', bbox_inches='tight')
+plt.savefig('MNISTvsFashionMNIST_accuracy%i.png'  %L , bbox_inches='tight')
 plt.show()
 
 # plot orthogonality
@@ -162,7 +163,7 @@ plt.legend()
 plt.ylabel('error')
 plt.xlabel('layers')
 plt.title(r' $|| I - U^T U ||_F$')
-plt.savefig('MNISTvsFashionMNIST_orthogonalityU100.png', bbox_inches='tight')
+plt.savefig('MNISTvsFashionMNIST_orthogonalityU%i.png'  %L, bbox_inches='tight')
 plt.show()
 
 plt.figure(figsize=(12, 8), dpi=80)
@@ -176,7 +177,7 @@ plt.legend()
 plt.ylabel('error')
 plt.xlabel('layers')
 plt.title(r' $|| I - V^T V ||_F$')
-plt.savefig('MNISTvsFashionMNIST_orthogonalityV100.png', bbox_inches='tight')
+plt.savefig('MNISTvsFashionMNIST_orthogonalityV%i.png' %L,  bbox_inches='tight')
 plt.show()
 
 
@@ -207,7 +208,7 @@ plt.legend()
 plt.ylabel('error')
 plt.xlabel('layers')
 plt.title(r'rank$(X)$')
-plt.savefig('MNISTvsFashionMNIST_ranks100.png', bbox_inches='tight')
+plt.savefig('MNISTvsFashionMNIST_ranks%i.png' %L , bbox_inches='tight')
 plt.show()
 
 
@@ -244,7 +245,7 @@ plt.legend()
 plt.ylabel('error')
 plt.xlabel('layers')
 plt.title(r' $|| U - \tilde U ||_F$')
-plt.savefig('MNISTvsFashionMNIST_integrationerrorU100.png', bbox_inches='tight')
+plt.savefig('MNISTvsFashionMNIST_integrationerrorU%i.png' %L , bbox_inches='tight')
 plt.show()
 
 plt.figure(figsize=(12, 8), dpi=80)
@@ -258,5 +259,5 @@ plt.legend()
 plt.ylabel('error')
 plt.xlabel('layers')
 plt.title(r' $|| V - \tilde V ||_F$')
-plt.savefig('MNISTvsFashionMNIST_integrationerrorV100.png', bbox_inches='tight')
+plt.savefig('MNISTvsFashionMNIST_integrationerrorV%i.png' %L , bbox_inches='tight')
 plt.show()
