@@ -8,8 +8,8 @@ from robustness import run_attack, plot_adversarial_examples
 
 epsilons = [0, .05, .1, .15, .2, .25, .3]
 
-N = 150
-V = 150
+N = 5000
+V = 1500
 batch_size = 5
 max_epochs = 15
 k = 3
@@ -40,6 +40,8 @@ _, acc_train_c100, _, acc_val_c100 = train(net_c,  max_epochs = max_epochs)
 net.eval()
 net_c.eval()
 net_r.eval()
+data = fashionMnist( N=1500, V=1500, batch_size=5, k=28, transform='none')
+data_c = fashionMnist( N=1500, V=1500, batch_size=5, k=3, transform='truncated svd')
 accuracies_100, _ = run_attack(net, epsilons)
 accuracies_100_c, _ = run_attack(net_c, epsilons)
 accuracies_100_r, _ = run_attack(net_r, epsilons)
@@ -99,7 +101,7 @@ plt.plot(epsilons, accuracies_100_r, ".-", label = "fashion-100 restr.")
 
 plt.yticks(np.arange(0, 1.1, step=0.1))
 plt.xticks(np.arange(0, .35, step=0.05))
-plt.title("MNIST Adversarial FGS Attack")
+plt.title("FashionMNIST Adversarial FGS Attack")
 plt.xlabel("Epsilon")
 plt.legend()
 plt.ylabel("Accuracy")

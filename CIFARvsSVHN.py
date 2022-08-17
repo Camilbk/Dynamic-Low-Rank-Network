@@ -5,12 +5,12 @@ from networks import ResNet, ProjTensorResNet, DynTensorResNet
 from optimisation import train
 import numpy as np
 
-N = 4000
-V = 1000
+N = 1500
+V = 1500
 batch_size = 20
 
-L = 100
-max_epochs = 20
+L = 10
+max_epochs = 30
 
 k = 9
 
@@ -42,8 +42,8 @@ print("\n")
 #save models
 PATH_cifar = "../../Models/cifar_dynnet%i.pt" %L
 PATH_svhn = "../../Models/svhn_dynnet%i.pt" %L
-torch.save(DynResNet_cifar.best_state, PATH_cifar)
-torch.save(DynResNet_svhn.best_state, PATH_svhn)
+#torch.save(DynResNet_cifar.best_state, PATH_cifar)
+#torch.save(DynResNet_svhn.best_state, PATH_svhn)
 
 #### STANDARD TENSOR RESNET
 # DATA
@@ -51,8 +51,8 @@ data_cifar = cifar10( N, V, batch_size, k=32, transform='none')
 data_svhn = svhn( N, V, batch_size, k=32, transform='none')
 # NETWORK
 # CONSTRUCT NETWORK
-net_cifar = ResNet(data_cifar, L=L, trainable_stepsize=True, d_hat='none')
-net_svhn = ResNet(data_svhn, L=L, trainable_stepsize=True, d_hat='none')
+net_cifar = ResNet(data_cifar, L, trainable_stepsize=True, d_hat='none')
+net_svhn = ResNet(data_svhn, L, trainable_stepsize=True, d_hat='none')
 # TRAIN NETWORK
 torch.autograd.set_detect_anomaly(True)
 _, acc_train_cifar, _, acc_val_cifar = train(net_cifar,  max_epochs = max_epochs)
@@ -67,8 +67,8 @@ print(max(acc_val_svhn))
 #save models
 PATH_cifar = "../../Models/cifar_resnet%i.pt" %L
 PATH_svhn = "../../Models/svhn_resnet%i.pt" %L
-torch.save(net_cifar.best_state, PATH_cifar)
-torch.save(net_svhn.best_state, PATH_svhn)
+#torch.save(net_cifar.best_state, PATH_cifar)
+#torch.save(net_svhn.best_state, PATH_svhn)
 
 #### PROJECTION TENSOR RESNET
 # DATA
@@ -76,8 +76,8 @@ torch.save(net_svhn.best_state, PATH_svhn)
 #data_svhn_tucker = svhn( N, V, batch_size, k=k, transform='tucker')
 # NETWORK
 # CONSTRUCT NETWORK
-ProjNet_cifar = ProjTensorResNet(data_cifar_tucker, L, trainable_stepsize=True, d_hat='none')
-ProjNet_svhn = ProjTensorResNet(data_svhn_tucker, L, trainable_stepsize=True, d_hat='none')
+ProjNet_cifar = ProjTensorResNet(data_cifar_tucker, L, trainable_stepsize=True)
+ProjNet_svhn = ProjTensorResNet(data_svhn_tucker, L, trainable_stepsize=True)
 # TRAIN NETWORK
 torch.autograd.set_detect_anomaly(True)
 _, Proj_acc_train_cifar, _, Proj_acc_val_cifar = train(ProjNet_cifar,  max_epochs = max_epochs)
@@ -85,8 +85,8 @@ _, Proj_acc_train_svhn, _, Proj_acc_val_svhn = train(ProjNet_svhn,  max_epochs =
 #save models
 PATH_cifar = "../../Models/cifar_projnet%i.pt" %L
 PATH_svhn = "../../Models/svhn_projnet%i.pt" %L
-torch.save(ProjNet_cifar.best_state, PATH_cifar)
-torch.save(ProjNet_svhn.best_state, PATH_svhn)
+#torch.save(ProjNet_cifar.best_state, PATH_cifar)
+#torch.save(ProjNet_svhn.best_state, PATH_svhn)
 
 
 print("ResNet")
@@ -141,7 +141,7 @@ plt.legend()
 plt.ylabel('accuracy')
 plt.xlabel('epochs')
 plt.title(r'CIFAR10 vs SVHN ')
-plt.savefig('CIFARvsSVHN_accuracy%i.png' %L, bbox_inches='tight')
+#plt.savefig('CIFARvsSVHN_accuracy%i.png' %L, bbox_inches='tight')
 plt.show()
 
 
@@ -159,7 +159,10 @@ print(s)
 s, err_U1_Dyn_svhn, err_U2_Dyn_svhn, err_U3_Dyn_svhn = DynResNet_svhn.orthogonality
 print(s)
 
-plt.figure(figsize=(12, 8), dpi=80)
+plt.rcParams.update({
+    "font.size":40})
+
+plt.figure(figsize=(14, 8), dpi=80)
 # ProjNet
 plt.plot(range(len(err_U1_Proj_cifar)), err_U1_Proj_cifar, 'tab:green', label = 'Proj. cifar')
 plt.plot(range(len(err_U1_Proj_svhn)), err_U1_Proj_svhn, 'tab:cyan', label = 'Proj. svhn' )
@@ -174,7 +177,7 @@ plt.title(r' $|| I - U_1^T U_1 ||_F$')
 plt.savefig('CIFARvsSVHN_orthogonalityU1_%i.png' %L, bbox_inches='tight')
 plt.show()
 
-plt.figure(figsize=(12, 8), dpi=80)
+plt.figure(figsize=(14, 8), dpi=80)
 # ProjNet
 plt.plot(range(len(err_U2_Proj_cifar)), err_U2_Proj_cifar, 'tab:green', label = 'Proj. cifar')
 plt.plot(range(len(err_U2_Proj_svhn)), err_U2_Proj_svhn, 'tab:cyan', label = 'Proj. svhn' )
@@ -189,7 +192,7 @@ plt.savefig('CIFARvsSVHN_orthogonalityU2_%i.png' %L, bbox_inches='tight')
 plt.show()
 
 
-plt.figure(figsize=(12, 8), dpi=80)
+plt.figure(figsize=(14, 8), dpi=80)
 # ProjNet
 plt.plot(range(len(err_U3_Proj_cifar)), err_U3_Proj_cifar, 'tab:green', label = 'Proj. cifar')
 plt.plot(range(len(err_U3_Proj_svhn)), err_U3_Proj_svhn, 'tab:cyan', label = 'Proj. svhn' )
@@ -209,11 +212,11 @@ plt.show()
 
 
 
-Ierr_U1_Proj_cifar, Ierr_U2_Proj_cifar, Ierr_U3_Proj_cifar = ProjNet_cifar.get_integration_error
-Ierr_U1_Proj_svhn, Ierr_U2_Proj_svhn, Ierr_U3_Proj_svhn = ProjNet_svhn.get_integration_error
+Ierr_U1_Proj_cifar, Ierr_U2_Proj_cifar, Ierr_U3_Proj_cifar = ProjNet_cifar.get_projection_error
+Ierr_U1_Proj_svhn, Ierr_U2_Proj_svhn, Ierr_U3_Proj_svhn = ProjNet_svhn.get_projection_error
 
-Ierr_U1_Dyn_cifar, Ierr_U2_Dyn_cifar, Ierr_U3_Dyn_cifar = DynResNet_cifar.get_integration_error
-Ierr_U1_Dyn_svhn, Ierr_U2_Dyn_svhn, Ierr_U3_Dyn_svhn = DynResNet_svhn.get_integration_error
+Ierr_U1_Dyn_cifar, Ierr_U2_Dyn_cifar, Ierr_U3_Dyn_cifar = DynResNet_cifar.get_projection_error
+Ierr_U1_Dyn_svhn, Ierr_U2_Dyn_svhn, Ierr_U3_Dyn_svhn = DynResNet_svhn.get_projection_error
 
 print("integration error U1 Proj CIFAR: ", Ierr_U1_Proj_cifar)
 print("integration error U2 Proj CIFAR: ", Ierr_U2_Proj_cifar)
@@ -231,7 +234,7 @@ print("integration error U1 Dyn SVHN: ", Ierr_U1_Dyn_svhn)
 print("integration error U2 Dyn SVHN: ", Ierr_U2_Dyn_svhn)
 print("integration error U3 Dyn SVHN: ", Ierr_U3_Dyn_svhn)
 
-plt.figure(figsize=(12, 8), dpi=80)
+plt.figure(figsize=(14, 8), dpi=80)
 # ProjNet
 plt.plot(range(len(Ierr_U1_Proj_cifar)), Ierr_U1_Proj_cifar, 'tab:green', label = 'Proj. cifar')
 plt.plot(range(len(Ierr_U1_Proj_svhn)), Ierr_U1_Proj_svhn, 'tab:cyan', label = 'Proj. svhn' )
@@ -245,7 +248,7 @@ plt.title(r' $|| U_1 - \tilde U_1 ||_F$')
 plt.savefig('CIFARvsSVHN_integrationerrorU1_%i.png' %L, bbox_inches='tight')
 plt.show()
 
-plt.figure(figsize=(12, 8), dpi=80)
+plt.figure(figsize=(14, 8), dpi=80)
 # ProjNet
 plt.plot(range(len(Ierr_U2_Proj_cifar)), Ierr_U2_Proj_cifar, 'tab:green', label = 'Proj. cifar')
 plt.plot(range(len(Ierr_U2_Proj_svhn)), Ierr_U2_Proj_svhn, 'tab:cyan', label = 'Proj. svhn' )
@@ -259,7 +262,7 @@ plt.title(r' $|| U_2 - \tilde U_2 ||_F$')
 plt.savefig('CIFARvsSVHN_integrationerrorU2_%i.png' %L, bbox_inches='tight')
 plt.show()
 
-plt.figure(figsize=(12, 8), dpi=80)
+plt.figure(figsize=(14, 8), dpi=80)
 # ProjNet
 plt.plot(range(len(Ierr_U3_Proj_cifar)), Ierr_U3_Proj_cifar, 'tab:green', label = 'Proj. cifar')
 plt.plot(range(len(Ierr_U3_Proj_svhn)), Ierr_U3_Proj_svhn, 'tab:cyan', label = 'Proj. svhn' )

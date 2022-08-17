@@ -1,10 +1,5 @@
-from data import mnist, fashionMnist, cifar10, svhn, from_tucker_decomposition
-from networks import DynResNet, ResNet, ProjResNet
-import optimisation
-import time
-from prettytable import PrettyTable
+from data import mnist, fashionMnist, cifar10, svhn
 from matplotlib import pyplot as plt
-import torch
 from torch.linalg import matrix_rank
 import numpy as np
 
@@ -88,7 +83,7 @@ plt.plot(error_9, label='k = 9')
 plt.plot(error_10, label='k = 10')
 plt.title('Error in Tucker Decomposition CIFAR10')
 plt.xlabel("images")
-plt.ylabel(r"$|| Y - Y_k ||_F$")
+plt.ylabel(r"$|| Y - Y_k ||_2$")
 plt.legend()
 plt.savefig('Error_Tucker_CIFAR10', bbox_inches='tight')
 #plt.show()
@@ -126,7 +121,7 @@ plt.plot(error_10, label = 'k = 10')
 plt.title('Error in Tucker Decomposition SVHN')
 plt.legend()
 plt.xlabel("images")
-plt.ylabel(r"$|| Y - Y_k ||_F$")
+plt.ylabel(r"$|| Y - Y_k ||_2$")
 plt.savefig('Error_Tucker_SVHN', bbox_inches='tight')
 #plt.show()
 
@@ -154,6 +149,7 @@ for data in train_fashion:
     ax[0, 1].plot(sigmas, "o", label=name)
 for data in train_cifar:
     name = str(type(data).__name__)
+    print(matrix_rank(data))
     sigmas = svdvals(data)
     ax[1, 0].plot(sigmas, "o", label=name)
 for data in train_svhn:

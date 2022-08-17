@@ -1,53 +1,71 @@
-
-
-from data import cifar10
-from networks import DynTensorResNet
-import optimisation
-from prettytable import PrettyTable
+from data import cifar10, fashionMnist
 from matplotlib import pyplot as plt
 import torch
+from networks import DynTensorResNet, ProjTensorResNet
+from optimisation import train
+import numpy as np
 
-N = 4500
-V = 4500
-batch_size = 5
-# k must be less than 11 :-) for padding reasons
-k = 9
-transform ='tucker'
+N = 150
+V = 150
+batch_size = 3
 
-#data_cifar = cifar10(N, V, batch_size, k, transform) ## data object
-data = cifar10(N, V, batch_size, k = k, transform= 'tucker' )
-L = 10
+L = 5
+max_epochs = 3
 
-net = DynTensorResNet(data, L)
+plt.rcParams.update({
+    "font.size":25})
 
-print(net.net_structure)
 
-torch.autograd.set_detect_anomaly(True)
-_, acc_train, _, acc_val = optimisation.train(net,  max_epochs = 5)
+#### DYNAMIC LOW-RANK NET
+# DATA
+data = cifar10( N, V, batch_size, k=3, transform='tucker')
 
-# table for accuracy
-print('\n statistics of accuracy')
-t = PrettyTable(['', 'before training', 'after training'])
-t.add_row(['training set', '%d %%' % acc_train[0], '%d %%' % acc_train[-1]])
-t.add_row(['validation set', '%d %%' % acc_val[0], '%d %%' % acc_val[-1]])
-print(t)
+# NETWORK
+# CONSTRUCT NETWORK
+dyn = DynTensorResNet(data, L, use_cayley=False)
+proj = ProjTensorResNet(data, L)
 
-# plot accurracy
-fig = plt.figure()
-plt.plot(range(len(acc_train)), acc_train, label = 'training accuracy')
-plt.plot(range(len(acc_val)), acc_val, label = 'validation accuracy')
-plt.legend()
-plt.ylabel('accuracy')
-plt.xlabel('epochs')
-plt.title(r'Network trained ')
+# TRAIN NETWORK
+#torch.autograd.set_detect_anomaly(True)
+_, Dyn_acc_train_mnist, _, Dyn_acc_val_mnist = train(dyn,  max_epochs = max_epochs)
+_, Dyn_acc_train_fashion, _, Dyn_acc_val_fashion = train(proj,  max_epochs = max_epochs)
+
+
+print("DynResNet")
+print(max(Dyn_acc_train_mnist))
+print(max(Dyn_acc_val_mnist))
+print("\n")
+print("ProjTensorNet")
+print(max(Dyn_acc_train_fashion))
+print(max(Dyn_acc_val_fashion))
+print("\n")
+
+
+
+s, err_U_Proj_mnist, err_V_Proj_mnist = dyn.orthogonality
+print(s)
+s, err_U_Proj_fashion, err_V_Proj_fashion = proj.orthogonality
+print(s)
+print("\n")
+
+
+plt.figure(figsize=(12, 8), dpi=80)
+# ProjNet
+plt.plot(range(len(err_U_Proj_mnist)), err_U_Proj_mnist, 'tab:green', label = 'dyn')
+plt.plot(range(len(err_U_Proj_fashion)), err_U_Proj_fashion, 'tab:cyan', label = 'proj' )
+plt.ylabel('error')
+plt.xlabel('layers')
+plt.title(r' $|| I - U^T U ||_F$')
+#plt.savefig('MNISTvsFashionMNIST_orthogonalityU%i.png'  %L, bbox_inches='tight')
 plt.show()
 
-print("Best training accuracy: ", round(max(acc_train), 2))
-print("Best validation accuracy: ", round(max(acc_val), 2))
+plt.figure(figsize=(12, 8), dpi=80)
+# ProjNet
+plt.plot(range(len(err_V_Proj_mnist)), err_V_Proj_mnist, 'tab:green', label = 'dyn')
+plt.plot(range(len(err_V_Proj_fashion)), err_V_Proj_fashion, 'tab:cyan', label = 'proj' )
+plt.ylabel('error')
+plt.xlabel('layers')
+plt.title(r' $|| I - V^T V ||_F$')
+#plt.savefig('MNISTvsFashionMNIST_orthogonalityV%i.png' %L,  bbox_inches='tight')
+plt.show()
 
-
-print(net.orthogonality)
-
-#print(net.rank_evolution)
-
-print(net.get_integration_error)

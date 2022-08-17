@@ -341,7 +341,6 @@ class SVDResNet(nn.Module):
             X_transformed = torch.empty(X.shape[0], self.n_matrices, self.dim * self.k, self.L + 1)
             # propagate data through network (forward pass)
             for i, layer in enumerate(self.layers):
-                print('X', X.shape)
                 # input layer with no activation
                 if i == 0:
                     X = layer(X)
@@ -639,7 +638,7 @@ class DynResNet(nn.Module):
         self.invariantsU = torch.zeros(X.shape[0], self.L + 1)
         self.invariantsV = torch.zeros(X.shape[0], self.L + 1)
 
-        self.integration_error = torch.empty(X.shape[0], 2, self.L + 1)
+        self.projection_error = torch.empty(X.shape[0], 2, self.L + 1)
 
         # print(self.h)
         # lagrange_multipliers = True
@@ -671,7 +670,7 @@ class DynResNet(nn.Module):
                 u = cay(self.h * (F @ uT), - self.h * (u @ FT)) @ u  # Project onto stiefel from tangent space
             else:
                 u = torch.matrix_exp( self.h * (F @ uT - u @ FT) ) @ u
-            self.integration_error[:, 0, i] = norm(u - u_tilde)
+            self.projection_error[:, 0, i] = norm(u - u_tilde)
 
             ######
             Id = torch.eye(v.shape[1])  # kan lagre I i minne så man slipper å lage denne hver gang
@@ -686,7 +685,7 @@ class DynResNet(nn.Module):
                 v = cay(self.h * (F @ vT), - self.h * (v @ FT)) @ v  # Project onto stiefel from tangent space
             else:
                 v = torch.matrix_exp(self.h * (F @ vT - v @ FT)) @ v
-            self.integration_error[:, 1, i] = norm(v - v_tilde)
+            self.projection_error[:, 1, i] = norm(v - v_tilde)
             # u = tangent_projection(u, dU, self.h)
             # v = tangent_projection(v, dV, self.h)
             ######
@@ -696,11 +695,10 @@ class DynResNet(nn.Module):
             X = u @ s @ transpose(v, 1, 2)
 
             # Invariants in tangent space if dY^T Y + Y^ dY
-            self.invariantsU[:, i] = norm(torch.transpose(dU, 1, 2) @ u) - norm(dU @ torch.transpose(u, 1, 2))
-            self.invariantsV[:, i] = norm(torch.transpose(dV, 1, 2) @ v) - norm(dV @ torch.transpose(v, 1, 2))
+            #self.invariantsU[:, i] = norm(torch.transpose(dU, 1, 2) @ u) - norm(dU @ torch.transpose(u, 1, 2))
+            #self.invariantsV[:, i] = norm(torch.transpose(dV, 1, 2) @ v) - norm(dV @ torch.transpose(v, 1, 2))
 
             X = torch.flatten(X, 1, 2)
-
             Ss[:, :, i] = torch.flatten(s, 1, 2)
             self.Us[:, :, i] = torch.flatten(u, 1, 2)
             self.Vs[:, :, i] = torch.flatten(v, 1, 2)
@@ -799,13 +797,13 @@ class DynResNet(nn.Module):
         return s
 
     @property
-    def get_integration_error(self):
+    def get_projection_error(self):
         # want to track how bad the numerical integration projects away from the Stiefel manifold
         # Could maybe be used to reject timesteps, and try with a smaller step h, but still we
         # have very limited control of the error in each step
 
-        err_U = np.average(self.integration_error[:, 0, :], axis=0)
-        err_V = np.average(self.integration_error[:, 1, :], axis=0)
+        err_U = np.average(self.projection_error[:, 0, :], axis=0)
+        err_V = np.average(self.projection_error[:, 1, :], axis=0)
         plt.tight_layout()
         plt.title(r' Integration error')
         plt.plot(err_U, label=r'$|| U - \tilde U ||_F$')
@@ -970,7 +968,7 @@ class DynTensorResNet(nn.Module):
         self.U2s[:, :, 0] = torch.flatten(U2, 1, 2)
         self.U3s[:, :, 0] = torch.flatten(U3, 1, 2)
 
-        self.integration_error = torch.empty(X.shape[0], 3, self.L + 1)
+        self.projection_error = torch.empty(X.shape[0], 3, self.L + 1)
 
         dS = np.zeros(S.shape)
         dU1 = np.zeros(U1.shape)
@@ -1030,16 +1028,15 @@ class DynTensorResNet(nn.Module):
                 integrate_u2 = torch.matrix_exp(u2_tilde)
                 integrate_u3 = torch.matrix_exp(u3_tilde)
 
-            self.integration_error[:, 0, i] = norm(integrate_u1 - u1_tilde)
-            self.integration_error[:, 1, i] = norm(integrate_u2 - u2_tilde)
-            self.integration_error[:, 2, i] = norm(integrate_u3 - u3_tilde)
+            self.projection_error[:, 0, i] = norm(integrate_u1 - u1_tilde)
+            self.projection_error[:, 1, i] = norm(integrate_u2 - u2_tilde)
+            self.projection_error[:, 2, i] = norm(integrate_u3 - u3_tilde)
 
             U1 = integrate_u1 @ U1  # Project onto stiefel from tangent space
             U2 = integrate_u2 @ U2  # Project onto stiefel from tangent space
             U3 = integrate_u3 @ U3  # Project onto stiefel from tangent space
 
             S = S + self.h * dS
-
             # update the image
             restored_im = torch.empty((X.shape[0], self.n_channels*self.dim*self.dim))
             for im in range(X.shape[0]): #loop over batch
@@ -1093,15 +1090,15 @@ class DynTensorResNet(nn.Module):
         U3sL = self.U3s  # U3(t)  [1500, (32, k), layers ]
         L = self.L
         k = self.k
-        err_U1 = np.zeros((U1sL.shape[0], L ))
-        err_U2 = np.zeros((U2sL.shape[0], L  ))
-        err_U3 = np.zeros((U3sL.shape[0], L ))
+        err_U1 = np.zeros((U1sL.shape[0], L +1  ))
+        err_U2 = np.zeros((U2sL.shape[0], L +1 ))
+        err_U3 = np.zeros((U3sL.shape[0], L +1 ))
         for i, u1_evol in enumerate(U1sL):
             # matrix_U = u_evol  # pick a matrix
             u2_evol = U2sL[i]  # pick a matrix
             u3_evol = U3sL[i]  # pick a matrix
 
-            for layer in range(L ):
+            for layer in range(L +1):
                 u1 = u1_evol[:, layer]
                 u2 = u2_evol[:, layer]
                 u3 = u3_evol[:, layer]
@@ -1168,10 +1165,10 @@ class DynTensorResNet(nn.Module):
         return s
 
     @property
-    def get_integration_error(self):
-        err_U1 = np.average(self.integration_error[:, 0, :], axis=0)
-        err_U2 = np.average(self.integration_error[:, 1, :], axis=0)
-        err_U3 = np.average(self.integration_error[:, 2, :], axis=0)
+    def get_projection_error(self):
+        err_U1 = np.average(self.projection_error[:, 0, :], axis=0)
+        err_U2 = np.average(self.projection_error[:, 1, :], axis=0)
+        err_U3 = np.average(self.projection_error[:, 2, :], axis=0)
 
         fig, ax = plt.subplots(3)
         plt.tight_layout()
@@ -1229,13 +1226,12 @@ class ProjResNet(nn.Module):
     and given by softmax function in case of general labels.
     """
 
-    def __init__(self, data_object, L, trainable_stepsize = True, d_hat='none', projection_type='polar'):
+    def __init__(self, data_object, L, trainable_stepsize = True,  projection_type='polar'):
         super(ProjResNet, self).__init__()
 
         self.data_object = data_object
         self.transform = data_object.transform
         self.k = data_object.k
-        self.d_hat = d_hat
         self.train_accuracy = np.empty(0)
         self.validation_accuracy = np.empty(0)
 
@@ -1250,17 +1246,12 @@ class ProjResNet(nn.Module):
             self.h = 1/L  # Standard ResNet
         K = len(data_object.labels_map)
         batch_size, n_matrices, self.d = data_object.all_data[0].shape  # [1500, 3, 28*k] if  svd
-        if self.d_hat == 'none':
-            self.d_hat = self.d
-
-        assert self.d_hat >= self.d
-
-        self.dim = int(self.d_hat / self.k)
+        self.dim = int(self.d / self.k)
         # L layers defined by affine operation z = Ky + b
-        layers = [nn.Linear(self.d, self.d_hat, bias=False)]  # input layer with no bias
-        self.d = int(np.sqrt(self.d))  # 28*28, 32*32
+        layers = [nn.Linear(self.d, self.d, bias=False)]  # input layer with no bias
+        #self.d = int(np.sqrt(self.d))  # 28*28, 32*32
         for layer in range(L):
-            layers.append(nn.Linear(self.d_hat, self.d_hat))
+            layers.append(nn.Linear(self.d, self.d))
         self.layers = nn.ModuleList(layers)
 
         if self.transform == 'svd':
@@ -1328,13 +1319,13 @@ class ProjResNet(nn.Module):
                 return Q
 
         # track transformation of features
-        X_transformed = torch.empty(X.shape[0], X.shape[1], self.d_hat, self.L + 1)  # [1500, 3, 28*k, 101]
+        X_transformed = torch.empty(X.shape[0], X.shape[1], self.d, self.L + 1)  # [1500, 3, 28*k, 101]
         self.X_transformed = X_transformed
         k = self.k
         if self.transform == 'svd':
-            integration_error = torch.empty(X.shape[0], 2, self.L + 1)
+            projection_error = torch.empty(X.shape[0], 2, self.L + 1)
         else:
-            integration_error = torch.empty(X.shape[0], self.L + 1)
+            projection_error = torch.empty(X.shape[0], self.L + 1)
 
         u = X[:,0]
         s = X[:,1]
@@ -1348,7 +1339,7 @@ class ProjResNet(nn.Module):
         X = Y
 
         # propagate data through network (forward pass)
-        self.integration_error = integration_error
+        self.projection_error = projection_error
         for i, layer in enumerate(self.layers):
             # input layer with no activation
             if i == 0:
@@ -1361,7 +1352,7 @@ class ProjResNet(nn.Module):
                     X_new = torch.empty((X.shape[0], 2, self.d * self.d))
                     X_new[:, 0] = torch.flatten(U, 1, 2)
                     X_new[:, 1] = P
-                    self.integration_error[:, i] = norm(U - U_tilde)
+                    self.projection_error[:, i] = norm(U - U_tilde)
                     X = X_new
 
                 elif self.transform == 'svd':
@@ -1374,8 +1365,8 @@ class ProjResNet(nn.Module):
                     S = X[:, 1]
                     U = projection(U_tilde, self.type)
                     V = projection(V_tilde, self.type)
-                    self.integration_error[:, 0, i] = norm(U - U_tilde)
-                    self.integration_error[:, 1, i] = norm(V - V_tilde)
+                    self.projection_error[:, 0, i] = norm(U - U_tilde)
+                    self.projection_error[:, 1, i] = norm(V - V_tilde)
                     X_new = torch.empty((X.shape[0], 3, self.dim * k))
                     X_new[:, 0] = torch.flatten(U, 1, 2)
                     X_new[:, 1] = S
@@ -1389,7 +1380,7 @@ class ProjResNet(nn.Module):
                     Q_tilde = X[:, 0].unflatten(1, (self.d, self.d))
                     # Projection on Stiefel
                     Q = projection(Q_tilde, self.transform)
-                    self.integration_error[:, i] = norm(Q - Q_tilde)
+                    self.projection_error[:, i] = norm(Q - Q_tilde)
                     X_new = torch.empty((X.shape[0], 2, self.d_hat))
                     X_new[:, 0] = torch.flatten(Q, 1, 2)
                     X_new[:, 1] = X[:, 1]
@@ -1405,7 +1396,7 @@ class ProjResNet(nn.Module):
                     U_tilde = X[:, 0].unflatten(1, (self.d, self.d))
                     P = X[:, 1]
                     U = projection(U_tilde, self.transform)
-                    self.integration_error[:, i] = norm(U - U_tilde)
+                    self.projection_error[:, i] = norm(U - U_tilde)
                     X_new = torch.empty((X.shape[0], 2, self.d * self.d))
                     X_new[:, 0] = torch.flatten(U, 1, 2)
                     X_new[:, 1] = P
@@ -1420,8 +1411,8 @@ class ProjResNet(nn.Module):
                     S = X[:, 1]
                     U = projection(U_tilde, self.type)
                     V = projection(V_tilde, self.type)
-                    self.integration_error[:, 0, i] = norm(U - U_tilde)
-                    self.integration_error[:, 1, i] = norm(V - V_tilde)
+                    self.projection_error[:, 0, i] = norm(U - U_tilde)
+                    self.projection_error[:, 1, i] = norm(V - V_tilde)
                     X_new = torch.empty((X.shape[0], 3, self.dim * k))
                     X_new[:, 0] = torch.flatten(U, 1, 2)
                     X_new[:, 1] = S
@@ -1434,7 +1425,7 @@ class ProjResNet(nn.Module):
                     Q_tilde = X[:, 0].unflatten(1, (self.d, self.d))
                     # Projection on Stiefel
                     Q = projection(Q_tilde, self.transform)
-                    self.integration_error[:, i] = norm(Q - Q_tilde)
+                    self.projection_error[:, i] = norm(Q - Q_tilde)
                     X_new = torch.empty((X.shape[0], 2, self.d_hat))
                     X_new[:, 0] = torch.flatten(Q, 1, 2)
                     X_new[:, 1] = X[:, 1]
@@ -1543,7 +1534,7 @@ class ProjResNet(nn.Module):
         print(self, '\n')
 
         # total number of neurons
-        num_neurons = self.d + self.d_hat * self.L
+        num_neurons = self.d + self.d * self.L
         print('total number of neurons in network:              ', num_neurons)
 
         # total number of parameters
@@ -1559,13 +1550,13 @@ class ProjResNet(nn.Module):
         return s
 
     @property
-    def get_integration_error(self):
+    def get_projection_error(self):
         # want to track how bad the numerical integration projects away from the Stiefel manifold
         # Could maybe be used to reject timesteps, and try with a smaller step h, but still we
         # have very limited control of the error in each step
         if self.transform == 'svd':
-            err_U = np.average(self.integration_error[:, 0, :], axis=0)
-            err_V = np.average(self.integration_error[:, 1, :], axis=0)
+            err_U = np.average(self.projection_error[:, 0, :], axis=0)
+            err_V = np.average(self.projection_error[:, 1, :], axis=0)
             plt.tight_layout()
             plt.title(r' Integration error')
             plt.plot(err_U, label=r'$|| U - \tilde U ||_F$')
@@ -1577,7 +1568,7 @@ class ProjResNet(nn.Module):
             return err_U, err_V
 
         else:
-            err = np.average(self.integration_error[:, :], axis=0)
+            err = np.average(self.projection_error[:, :], axis=0)
             plt.tight_layout()
             plt.title(r' Integration error')
             plt.plot(err, label=r'$|| U - \tilde U ||_F$')
@@ -1673,14 +1664,13 @@ class ProjTensorResNet(nn.Module):
     and given by softmax function in case of general labels.
     """
 
-    def __init__(self, data_object, L, trainable_stepsize = True, d_hat='none'):
+    def __init__(self, data_object, L, trainable_stepsize = True):
         super(ProjTensorResNet, self).__init__()
 
         #assert data_object.transform == 'tucker'
         self.n_channels = 3
         self.data_object = data_object
         self.k = data_object.k
-        self.d_hat = d_hat
         self.train_accuracy = np.empty(0)
         self.validation_accuracy = np.empty(0)
         self.L = L
@@ -1691,11 +1681,8 @@ class ProjTensorResNet(nn.Module):
             self.h = nn.Parameter(h, requires_grad=True)  # random stepsize
         K = len(data_object.labels_map)
         batch_size, n_matrices, self.d = data_object.all_data[0].shape  # [1500, 6, 32*k] if  tucker
-        if self.d_hat == 'none':
-            self.d_hat = self.d
 
-        assert self.d_hat >= self.d
-        self.dim = int(self.d_hat / self.k)
+        self.dim = int(self.d/ self.k)
         # L layers defined by affine operation z = Ky + b
         in_features =  self.dim * self.k
         out_features =  self.dim * self.k
@@ -1768,7 +1755,7 @@ class ProjTensorResNet(nn.Module):
                 # (U V*) (V S V*)
                 return U[:, 0:n, 0:k] @ Vh[:, 0:k, 0:m]
 
-        self.integration_error = torch.empty(X.shape[0], 3, self.L + 1)
+        self.projection_error = torch.empty(X.shape[0], 3, self.L + 1)
 
         #X = prep_for_vec_field(X) # flatted restored "truncated" tucker decomposition
         # propagate data through network (forward pass)
@@ -1791,9 +1778,9 @@ class ProjTensorResNet(nn.Module):
             U2 = projection(U2_tilde)
             U3 = projection(U3_tilde)
 
-            self.integration_error[:, 0, i] = norm(U1 - U1_tilde)
-            self.integration_error[:, 1, i] = norm(U2 - U2_tilde)
-            self.integration_error[:, 2, i] = norm(U3 - U3_tilde)
+            self.projection_error[:, 0, i] = norm(U1 - U1_tilde)
+            self.projection_error[:, 1, i] = norm(U2 - U2_tilde)
+            self.projection_error[:, 2, i] = norm(U3 - U3_tilde)
 
             self.U1s[:, :, i ] = torch.flatten(U1, 1, 2)
             self.U2s[:, :, i] = torch.flatten(U2, 1, 2)
@@ -1834,15 +1821,15 @@ class ProjTensorResNet(nn.Module):
         U3sL = self.U3s  # U3(t)  [1500, (32, k), layers ]
         L = self.L
         k = self.k
-        err_U1 = np.zeros((U1sL.shape[0], L ))
-        err_U2 = np.zeros((U2sL.shape[0], L  ))
-        err_U3 = np.zeros((U3sL.shape[0], L ))
+        err_U1 = np.zeros((U1sL.shape[0], L +1))
+        err_U2 = np.zeros((U2sL.shape[0], L +1))
+        err_U3 = np.zeros((U3sL.shape[0], L +1))
         for i, u1_evol in enumerate(U1sL):
             # matrix_U = u_evol  # pick a matrix
             u2_evol = U2sL[i]  # pick a matrix
             u3_evol = U3sL[i]  # pick a matrix
 
-            for layer in range(L ):
+            for layer in range(L + 1 ):
                 u1 = u1_evol[:, layer]
                 u2 = u2_evol[:, layer]
                 u3 = u3_evol[:, layer]
@@ -1893,7 +1880,7 @@ class ProjTensorResNet(nn.Module):
         print(self, '\n')
 
         # total number of neurons
-        num_neurons = self.d + self.d_hat * self.L
+        num_neurons = self.d + self.d * self.L
         print('total number of neurons in network:              ', num_neurons)
 
         # total number of parameters
@@ -1909,14 +1896,14 @@ class ProjTensorResNet(nn.Module):
         return s
 
     @property
-    def get_integration_error(self):
+    def get_projection_error(self):
         # want to track how bad the numerical integration projects away from the Stiefel manifold
         # Could maybe be used to reject timesteps, and try with a smaller step h, but still we
         # have very limited control of the error in each step
 
-        err_U1 = np.average(self.integration_error[:, 0, :], axis=0)
-        err_U2 = np.average(self.integration_error[:, 1, :], axis=0)
-        err_U3 = np.average(self.integration_error[:, 2, :], axis=0)
+        err_U1 = np.average(self.projection_error[:, 0, :], axis=0)
+        err_U2 = np.average(self.projection_error[:, 1, :], axis=0)
+        err_U3 = np.average(self.projection_error[:, 2, :], axis=0)
 
         fig, ax = plt.subplots(3)
         plt.tight_layout()

@@ -7,7 +7,7 @@ import numpy as np
 
 N = 5000
 V = 1500
-batch_size = 30
+batch_size = 10
 
 L = 100
 max_epochs = 30
@@ -62,8 +62,8 @@ data_mnist_svd = mnist( N, V, batch_size, k=3, transform='svd')
 data_fashion_svd = fashionMnist( N, V, batch_size, k=3, transform='svd')
 # NETWORK
 # CONSTRUCT NETWORK
-ProjNet_mnist = ProjResNet(data_mnist_svd, L, trainable_stepsize=True, d_hat='none')
-ProjNet_fashion = ProjResNet(data_fashion_svd, L, trainable_stepsize=True, d_hat='none')
+ProjNet_mnist = ProjResNet(data_mnist_svd, L, trainable_stepsize=True)
+ProjNet_fashion = ProjResNet(data_fashion_svd, L, trainable_stepsize=True)
 # TRAIN NETWORK
 torch.autograd.set_detect_anomaly(True)
 _, Proj_acc_train_mnist, _, Proj_acc_val_mnist = train(ProjNet_mnist,  max_epochs = max_epochs)
@@ -214,25 +214,25 @@ plt.show()
 
 
 
-# integration error ..  ?
+# Projection error ..  ?
 
-Ierr_U_Proj_mnist, Ierr_V_Proj_mnist = ProjNet_mnist.get_integration_error
-Ierr_U_Proj_fashion, Ierr_V_Proj_fashion = ProjNet_fashion.get_integration_error
+Ierr_U_Proj_mnist, Ierr_V_Proj_mnist = ProjNet_mnist.get_projection_error
+Ierr_U_Proj_fashion, Ierr_V_Proj_fashion = ProjNet_fashion.get_projection_error
 
-Ierr_U_Dyn_mnist, Ierr_V_Dyn_mnist = DynResNet_mnist.get_integration_error
-Ierr_U_Dyn_fashion, Ierr_V_Dyn_fashion = DynResNet_fashion.get_integration_error
+Ierr_U_Dyn_mnist, Ierr_V_Dyn_mnist = DynResNet_mnist.get_projection_error
+Ierr_U_Dyn_fashion, Ierr_V_Dyn_fashion = DynResNet_fashion.get_projection_error
 
-print("integration error U Proj MNIST: ", Ierr_U_Proj_mnist)
-print("integration error V Proj MNIST: ", Ierr_V_Proj_mnist)
+print("Projection error U Proj MNIST: ", Ierr_U_Proj_mnist)
+print("Projection error V Proj MNIST: ", Ierr_V_Proj_mnist)
 
-print("integration error U Proj fashion: ", Ierr_U_Proj_fashion)
-print("integration error V Proj fashion: ", Ierr_V_Proj_fashion)
+print("Projection error U Proj fashion: ", Ierr_U_Proj_fashion)
+print("Projection error V Proj fashion: ", Ierr_V_Proj_fashion)
 
-print("integration error U Proj MNIST: ", Ierr_U_Dyn_mnist)
-print("integration error V Proj MNIST: ", Ierr_V_Dyn_mnist)
+print("Projection error U Proj MNIST: ", Ierr_U_Dyn_mnist)
+print("Projection error V Proj MNIST: ", Ierr_V_Dyn_mnist)
 
-print("integration error U Proj fashion: ", Ierr_U_Dyn_fashion)
-print("integration error V Proj fashion: ", Ierr_V_Dyn_fashion)
+print("Projection error U Proj fashion: ", Ierr_U_Dyn_fashion)
+print("Projection error V Proj fashion: ", Ierr_V_Dyn_fashion)
 
 plt.figure(figsize=(12, 8), dpi=80)
 # ProjNet

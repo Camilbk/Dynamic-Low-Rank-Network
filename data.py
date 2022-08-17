@@ -508,8 +508,6 @@ def data_transform(transform, t, k):
         return truncated_tucker(t, k)
     if transform == 'tucker':
         return tucker_decomposition(t,k)
-    if transform == 'truncated tucker':
-        return truncated_tucker(t,k)
     if transform == 'grayscale':
         return torch.flatten(rgb_to_grayscale(img = t, num_output_channels=1))
     if transform == 'none':
@@ -536,8 +534,9 @@ def svd_transform(t, k):
     t = torch.reshape(t, (d, d))  ## reshape
     Uk, sk, Vk = svd(t)  ## and find the truncates svd
     sk = torch.diag(sk[0:k])
-    p1d = (0, k - 3, 0, d - 3)  ## Need to increase dimension from (3,3) to (32, k)
-    sk = torch.nn.functional.pad(sk, p1d, "constant", 0)
+    if k  != 28:
+        p1d = (0, k - 3, 0, d - 3)  ## Need to increase dimension from (3,3) to (32, k)
+        sk = torch.nn.functional.pad(sk, p1d, "constant", 0)
 
     # For the network to be able to handle all three matrices through the network,
     #  we need them to be the same size when flattened.
@@ -593,11 +592,6 @@ def tucker_decomposition(t, k):
     tucker_decomposition[5] = torch.flatten(torch.from_numpy(U3))
 
     return tucker_decomposition
-
-def truncated_tucker(t,k): 
-    decomp = tucker(t.numpy(), rank=[3, k, k])
-    t = tucker_to_tensor(decomp)
-    return torch.flatten(torch.from_numpy(t), 1,2)
 
 def from_tucker_decomposition(decomp, k):
     """
